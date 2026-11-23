@@ -12,7 +12,8 @@ import {
  * that proof inside the query prevents an installation change racing lookup.
  */
 export function getSlackTaskRunWorkspacePredicate(slackTeamId: string) {
-  const payloadTeamId = sql`COALESCE(NULLIF(${taskRuns.payload}->>'teamId', ''), NULLIF(${taskRuns.payload}->>'slackTeamId', ''))`;
+  // Fast-delegated Slack tasks record their workspace as communicationTeamId.
+  const payloadTeamId = sql`COALESCE(NULLIF(${taskRuns.payload}->>'teamId', ''), NULLIF(${taskRuns.payload}->>'slackTeamId', ''), CASE WHEN ${taskRuns.payload}->>'communicationProvider' = 'slack' THEN NULLIF(${taskRuns.payload}->>'communicationTeamId', '') END)`;
 
   return sql`(
     ${payloadTeamId} = ${slackTeamId}

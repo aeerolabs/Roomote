@@ -2991,6 +2991,48 @@ export const slackInstallationChannelsRelations = relations(
 );
 
 /**
+ * slack_code_channels
+ *
+ * A Slack code channel (agents.conversations.create) that Roomote opened for
+ * one delegated task. Inside the channel people talk at the top level, but
+ * the rest of Roomote keys a Slack conversation on (channel, thread_ts). The
+ * anchor is the kickoff message Roomote posts first in the channel; the
+ * session runs as that message's "thread", and the Slack edge translates
+ * between the two (top-level in Slack, anchor thread inside Roomote).
+ */
+
+export const slackCodeChannels = pgTable(
+  'slack_code_channels',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slackInstallationId: uuid('slack_installation_id')
+      .notNull()
+      .references(() => slackInstallations.id, { onDelete: 'cascade' }),
+    teamId: text('team_id').notNull(),
+    channelId: text('channel_id').notNull(),
+    /** Idempotency key passed to agents.conversations.create. */
+    sessionId: text('session_id').notNull().unique(),
+    anchorTs: text('anchor_ts').notNull(),
+    originChannelId: text('origin_channel_id').notNull(),
+    originMessageTs: text('origin_message_ts').notNull(),
+    taskId: text('task_id').references(() => tasks.id, {
+      onDelete: 'set null',
+    }),
+    archivedAt: timestamp('archived_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('slack_code_channels_team_channel_unique').on(
+      table.teamId,
+      table.channelId,
+    ),
+    index('slack_code_channels_channel_id_idx').on(table.channelId),
+    index('slack_code_channels_task_id_idx').on(table.taskId),
+  ],
+);
+
+/**
  * slack_user_mappings
  */
 

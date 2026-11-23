@@ -11,6 +11,7 @@ export const SLACK_MANIFEST_BOT_SCOPES = [
   'channels:manage',
   'channels:join',
   'chat:write',
+  'code_channels:manage',
   'files:read',
   'files:write',
   'groups:read',
@@ -29,6 +30,7 @@ export const SLACK_MANIFEST_BOT_SCOPES = [
 ] as const;
 
 export const SLACK_MANIFEST_BOT_EVENTS = [
+  'agent_session_stopped',
   'app_context_changed',
   'app_home_opened',
   'app_mention',
@@ -72,6 +74,12 @@ export function buildSlackAppManifest({
       },
       agent_view: {
         agent_description: SLACK_MANIFEST_DESCRIPTION,
+      },
+      // Each delegated task gets its own code channel; per-channel agent slash
+      // commands are delivered to the same webhook as interactivity.
+      code_channels: {
+        enabled: true,
+        slash_command_url: `${origin}/api/webhooks/slack/code-channel-commands`,
       },
       bot_user: {
         display_name: appName,

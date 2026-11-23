@@ -32,12 +32,49 @@ import type {
 import { isSlackImageFile } from './thread-image-utils';
 import { createSlackWebClient } from './web-client';
 import {
+  isSlackCodeChannelAnchorThread,
+  peekSlackCodeChannelAnchor,
+  resolveSlackCodeChannelAnchor,
+} from './code-channel-routing';
+import {
   appendSlackAttachmentContext,
   appendSlackForwardedMessageFiles,
   formatSlackAttachmentContext,
 } from './forwarded-message-context';
 
 class SlackChannelDeadlineError extends Error {}
+
+/**
+ * Rewrites a conversations.replies query on a code channel's anchor into the
+ * equivalent conversations.history query (top-level messages from the anchor
+ * on), or returns null for every other thread.
+ */
+function toCodeChannelHistoryQuery(
+  query: URLSearchParams,
+  anchorTs: string | null,
+): URLSearchParams | null {
+  const channel = query.get('channel') ?? undefined;
+  const threadTs = query.get('ts') ?? undefined;
+  if (!channel || !threadTs || !anchorTs || anchorTs !== threadTs) return null;
+
+  const requestedOldest = query.get('oldest');
+  const history = new URLSearchParams({
+    channel,
+    oldest:
+      requestedOldest && Number(requestedOldest) > Number(anchorTs)
+        ? requestedOldest
+        : anchorTs,
+    inclusive: 'true',
+    limit: query.get('limit') ?? '1000',
+  });
+  const latest = query.get('latest');
+  if (latest) history.set('latest', latest);
+  for (const key of ['cursor', 'include_all_metadata']) {
+    const value = query.get(key);
+    if (value) history.set(key, value);
+  }
+  return history;
+}
 
 function slackDeadlineOptions(deadlineAt?: number): { timeoutMs?: number } {
   return deadlineAt === undefined
@@ -84,6 +121,36 @@ function getSlackPlatformError(error: unknown): string | undefined {
     ? platformError.data.error
     : undefined;
 }
+
+type SlackCodeChannelApiResult =
+  | { ok: true; response: Record<string, unknown> }
+  | { ok: false; error: string };
+
+export type SlackCodeChannelContextBarIcon =
+  | 'branch'
+  | 'folder'
+  | 'hierarchy'
+  | 'life-ring'
+  | 'link'
+  | 'globe'
+  | 'terminal'
+  | 'code'
+  | 'search'
+  | 'lock';
+
+export type SlackCodeChannelContextBarItem = {
+  key: string;
+  label: string;
+  icon?: SlackCodeChannelContextBarIcon;
+  url?: string;
+};
+
+export type SlackCodeChannelCommand = {
+  /** Without the leading slash. */
+  name: string;
+  description: string;
+  argument_hint?: string;
+};
 
 type SlackApiThreadResponse = {
   ok: boolean;
@@ -358,13 +425,18 @@ export class SlackNotifier {
     title?: string;
   }): Promise<{ ok: boolean; title?: string }> {
     try {
+      // A code channel is one session for the whole channel: no thread_ts.
+      const channelSession = await isSlackCodeChannelAnchorThread(
+        channel,
+        threadTs,
+      );
       const response = await this.getClient().apiCall(
         'agents.sessions.setStatus',
         {
           channel_id: channel,
-          thread_ts: threadTs,
+          ...(channelSession ? {} : { thread_ts: threadTs }),
           status,
-          ...(title ? { title } : {}),
+          ...(title && !channelSession ? { title } : {}),
         },
       );
       if (response.ok) {
@@ -399,11 +471,16 @@ export class SlackNotifier {
     title: string;
   }): Promise<SlackAgentSessionRenameResult> {
     try {
+      // Renaming a code channel session renames the channel itself.
+      const channelSession = await isSlackCodeChannelAnchorThread(
+        channel,
+        threadTs,
+      );
       const response = await this.getClient().apiCall(
         'agents.sessions.rename',
         {
           channel_id: channel,
-          thread_ts: threadTs,
+          ...(channelSession ? {} : { thread_ts: threadTs }),
           title,
         },
       );
@@ -425,6 +502,131 @@ export class SlackNotifier {
         ...(platformError ? { error: platformError } : {}),
       };
     }
+  }
+
+  /**
+   * Slack Code (code channels). Every method reports failure instead of
+   * throwing; callers fall back to the ordinary thread experience.
+   * https://docs.slack.dev/ai/slack-code/
+   */
+  private async callCodeChannelApi(
+    method: string,
+    args: Record<string, unknown>,
+  ): Promise<SlackCodeChannelApiResult> {
+    try {
+      const response = await this.getClient().apiCall(method, args);
+      if (response.ok) {
+        return {
+          ok: true,
+          response: response as unknown as Record<string, unknown>,
+        };
+      }
+      const error =
+        typeof response.error === 'string' ? response.error : 'unknown_error';
+      console.warn(`[SlackCodeChannels] ${method} rejected: ${error}`);
+      return { ok: false, error };
+    } catch (error) {
+      const platformError = getSlackPlatformError(error);
+      console.warn(
+        `[SlackCodeChannels] ${method} failed: ${platformError ?? (error instanceof Error ? error.message : String(error))}`,
+      );
+      return { ok: false, error: platformError ?? 'request_failed' };
+    }
+  }
+
+  /** agents.conversations.create. Idempotent on sessionId. */
+  public async createCodeChannel(params: {
+    sessionId: string;
+    originChannelId: string;
+    originMessageTs: string;
+    name?: string;
+  }): Promise<{ ok: true; channelId: string } | { ok: false; error: string }> {
+    const result = await this.callCodeChannelApi(
+      'agents.conversations.create',
+      {
+        session_id: params.sessionId,
+        origin_channel_id: params.originChannelId,
+        origin_message_ts: params.originMessageTs,
+        ...(params.name ? { name: params.name.slice(0, 80) } : {}),
+      },
+    );
+    if (!result.ok) return result;
+    const channel = result.response.channel as { id?: unknown } | undefined;
+    const channelId =
+      typeof channel?.id === 'string'
+        ? channel.id
+        : typeof result.response.channel_id === 'string'
+          ? result.response.channel_id
+          : null;
+    return channelId
+      ? { ok: true, channelId }
+      : { ok: false, error: 'missing_channel_id' };
+  }
+
+  /** agents.conversations.setProperties: the context bar (max 5 items; the
+   * array replaces the current set). */
+  public async setCodeChannelContextBar(params: {
+    channelId: string;
+    items: SlackCodeChannelContextBarItem[];
+  }): Promise<boolean> {
+    const result = await this.callCodeChannelApi(
+      'agents.conversations.setProperties',
+      {
+        channel_id: params.channelId,
+        code_channel: { context_bar_items: params.items.slice(0, 5) },
+      },
+    );
+    return result.ok;
+  }
+
+  /** agents.conversations.setView with type diff: the channel's Code tab. */
+  public async setCodeChannelDiff(params: {
+    channelId: string;
+    diff: string;
+    baseBranch?: string;
+    headBranch?: string;
+  }): Promise<boolean> {
+    const result = await this.callCodeChannelApi(
+      'agents.conversations.setView',
+      {
+        channel_id: params.channelId,
+        type: 'diff',
+        content: params.diff,
+        ...(params.baseBranch ? { base_branch: params.baseBranch } : {}),
+        ...(params.headBranch ? { head_branch: params.headBranch } : {}),
+      },
+    );
+    return result.ok;
+  }
+
+  /** agents.conversations.setCommands. Replaces this agent's command set. */
+  public async setCodeChannelCommands(params: {
+    channelId: string;
+    commands: SlackCodeChannelCommand[];
+  }): Promise<boolean> {
+    const result = await this.callCodeChannelApi(
+      'agents.conversations.setCommands',
+      { channel_id: params.channelId, commands: params.commands },
+    );
+    return result.ok;
+  }
+
+  /** agents.conversations.archive, recording the summary message. */
+  public async archiveCodeChannel(params: {
+    channelId: string;
+    summaryMessageTs?: string;
+  }): Promise<{ ok: boolean; error?: string }> {
+    const result = await this.callCodeChannelApi(
+      'agents.conversations.archive',
+      {
+        channel_id: params.channelId,
+        ...(params.summaryMessageTs
+          ? { summary_message_ts: params.summaryMessageTs }
+          : {}),
+      },
+    );
+    if (result.ok || result.error === 'already_archived') return { ok: true };
+    return { ok: false, error: result.error };
   }
 
   private getChannelDiscovery(): SlackChannelDiscovery {
@@ -1118,7 +1320,17 @@ export class SlackNotifier {
     message: SlackMessage & { user?: string },
     messageType: 'regular' | 'ephemeral',
   ): Promise<SlackResponse | null> {
-    const normalizedMessage = normalizeOutboundMessage(message);
+    let normalizedMessage = normalizeOutboundMessage(message);
+    if (
+      await isSlackCodeChannelAnchorThread(
+        normalizedMessage.channel,
+        normalizedMessage.thread_ts,
+      )
+    ) {
+      // Code channels talk at the top level; the anchor thread is internal.
+      const { thread_ts: _anchorTs, ...topLevelMessage } = normalizedMessage;
+      normalizedMessage = topLevelMessage;
+    }
 
     try {
       const response = await slackFetch(buildSlackApiUrl(endpoint), {
@@ -1393,9 +1605,14 @@ export class SlackNotifier {
     markdownText: string;
   }): Promise<string | null> {
     try {
+      // Slack documents thread_ts "0" as a top-level stream in a code channel.
+      const topLevel = await isSlackCodeChannelAnchorThread(
+        params.channel,
+        params.threadTs,
+      );
       const response = await this.getClient().chat.startStream({
         channel: params.channel,
-        thread_ts: params.threadTs,
+        thread_ts: topLevel ? '0' : params.threadTs,
         recipient_team_id: params.recipientTeamId,
         recipient_user_id: params.recipientUserId,
         markdown_text: params.markdownText,
@@ -2356,7 +2573,20 @@ export class SlackNotifier {
     const cacheable = context === 'fetchThreadMessages';
     const freshRead = context === 'fetchMessageBlocks';
     const generation = this.threadResponseGeneration;
-    const cacheKey = query.toString();
+    // A code channel session's "thread" is the channel from its anchor on.
+    // Only an uncached channel waits on the lookup; everything else stays
+    // synchronous up to the in-flight dedupe below.
+    const queryChannel = query.get('channel') ?? undefined;
+    let anchorTs = peekSlackCodeChannelAnchor(queryChannel);
+    if (anchorTs === undefined) {
+      anchorTs = await resolveSlackCodeChannelAnchor(queryChannel);
+    }
+    const codeChannelQuery = toCodeChannelHistoryQuery(query, anchorTs);
+    const endpoint = codeChannelQuery
+      ? 'conversations.history'
+      : 'conversations.replies';
+    if (codeChannelQuery) query = codeChannelQuery;
+    const cacheKey = `${endpoint}?${query.toString()}`;
     const maxRateLimitRetries =
       context === 'fetchMessageBlocks'
         ? 1
@@ -2395,7 +2625,7 @@ export class SlackNotifier {
           }
 
           const response = await slackFetch(
-            `${buildSlackApiUrl('conversations.replies')}?${query.toString()}`,
+            `${buildSlackApiUrl(endpoint)}?${query.toString()}`,
             {
               method: 'GET',
               headers: {
@@ -2443,6 +2673,10 @@ export class SlackNotifier {
           }
 
           const result = (await response.json()) as SlackApiThreadResponse;
+          if (codeChannelQuery && Array.isArray(result.messages)) {
+            // conversations.history is newest-first; replies is oldest-first.
+            result.messages.reverse();
+          }
           if (
             result.ok &&
             cacheable &&

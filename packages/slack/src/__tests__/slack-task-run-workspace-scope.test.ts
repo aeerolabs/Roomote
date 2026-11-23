@@ -118,4 +118,70 @@ describe('getSlackTaskRunWorkspacePredicate', () => {
       }
     }
   });
+
+  it('scopes Fast-delegated Slack runs by their communication workspace', async () => {
+    let assertionsCompleted = false;
+
+    try {
+      await db.transaction(async (tx) => {
+        await tx.delete(slackInstallations);
+
+        const user = await userFactory.transient({ db: tx }).create();
+        // Two active workspaces, so the legacy single-workspace fallback
+        // cannot admit the run.
+        await slackInstallationFactory.transient({ db: tx }).create({
+          teamId: 'TFAST1',
+          installedByUserId: user.id,
+        });
+        await slackInstallationFactory.transient({ db: tx }).create({
+          teamId: 'TFAST2',
+          installedByUserId: user.id,
+        });
+
+        const task = await taskFactory
+          .transient({ db: tx })
+          .create({ slackThreadTs: 'fast-delegated-scope' });
+        const slackRun = await runFactory.transient({ db: tx }).create({
+          taskId: task.id,
+          payload: {
+            repo: 'owner/repo',
+            communicationProvider: 'slack',
+            communicationTeamId: 'TFAST1',
+          },
+          status: RunStatus.Running,
+        });
+        const otherProviderRun = await runFactory.transient({ db: tx }).create({
+          taskId: task.id,
+          payload: {
+            repo: 'owner/repo',
+            communicationProvider: 'discord',
+            communicationTeamId: 'TFAST1',
+          },
+          status: RunStatus.Running,
+        });
+
+        const matches = async (runId: number, teamId: string) =>
+          tx
+            .select({ id: taskRuns.id })
+            .from(taskRuns)
+            .where(
+              and(
+                eq(taskRuns.id, runId),
+                getSlackTaskRunWorkspacePredicate(teamId),
+              ),
+            );
+
+        expect(await matches(slackRun.id, 'TFAST1')).toHaveLength(1);
+        expect(await matches(slackRun.id, 'TFAST2')).toHaveLength(0);
+        // Another provider's workspace id never stands in for a Slack team.
+        expect(await matches(otherProviderRun.id, 'TFAST1')).toHaveLength(0);
+        assertionsCompleted = true;
+        tx.rollback();
+      });
+    } catch (error) {
+      if (!assertionsCompleted) {
+        throw error;
+      }
+    }
+  });
 });
