@@ -32,6 +32,12 @@ export async function maybePostSlackChannelWelcome(params: {
     return;
   }
 
+  // Slack invites the agent into each code channel it opens; that channel
+  // starts with the task, not a welcome, and is not a joined channel to keep.
+  if (await slack.isSlackCodeChannel(event.channel)) {
+    return;
+  }
+
   const [insertedChannel] = await db
     .insert(slackInstallationChannels)
     .values({

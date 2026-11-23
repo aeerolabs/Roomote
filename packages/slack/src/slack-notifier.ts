@@ -534,6 +534,32 @@ export class SlackNotifier {
     }
   }
 
+  /**
+   * Whether a channel is a Slack code channel. Slack marks every code channel
+   * with record_channel.record_type "agent_channel" from the moment it is
+   * created, so this works before Roomote has recorded the channel itself.
+   */
+  public async isSlackCodeChannel(channelId: string): Promise<boolean> {
+    if (await resolveSlackCodeChannelAnchor(channelId)) return true;
+    try {
+      const response = (await this.getClient().apiCall('conversations.info', {
+        channel: channelId,
+      })) as {
+        ok?: boolean;
+        channel?: {
+          properties?: { record_channel?: { record_type?: unknown } };
+        };
+      };
+      return (
+        response.ok === true &&
+        response.channel?.properties?.record_channel?.record_type ===
+          'agent_channel'
+      );
+    } catch {
+      return false;
+    }
+  }
+
   /** agents.conversations.create. Idempotent on sessionId. */
   public async createCodeChannel(params: {
     sessionId: string;
