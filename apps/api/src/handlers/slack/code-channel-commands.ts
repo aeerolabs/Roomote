@@ -21,7 +21,7 @@ import { verifySlackRequest } from './verifySlackRequest.js';
  * slash command, to features.code_channels.slash_command_url.
  * https://docs.slack.dev/ai/slack-code/agent-slash-commands
  */
-export type SlackCodeChannelCommandResult = {
+type SlackCodeChannelCommandResult = {
   status: number;
   body: Record<string, unknown>;
 };

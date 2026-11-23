@@ -2,6 +2,7 @@ import {
   db,
   eq,
   slackCodeChannels,
+  slackInstallations,
   slackInstallationFactory,
   taskFactory,
   tasks,
@@ -38,6 +39,13 @@ describe('Slack code channels (database)', () => {
       installedByUserId: user.id,
     });
     installationId = installation.id;
+  });
+
+  afterEach(async () => {
+    // Cascades to the code channels this installation opened.
+    await db
+      .delete(slackInstallations)
+      .where(eq(slackInstallations.id, installationId));
   });
 
   it('gates on the code_channels:manage bot scope', () => {

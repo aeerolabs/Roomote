@@ -32,7 +32,7 @@ async function resolveBaseRef(cwd: string): Promise<string | null> {
   return null;
 }
 
-export type CodeChannelBranchDiff = {
+type CodeChannelBranchDiff = {
   diff: string;
   baseBranch?: string;
   headBranch?: string;

@@ -74,6 +74,19 @@ export type MockSlackCreatedManifest = {
   manifest: Record<string, unknown>;
 };
 
+export type MockSlackCodeChannel = {
+  id: string;
+  sessionId?: string;
+  name?: string;
+  originChannelId?: string;
+  originMessageTs?: string;
+  contextBarItems?: unknown[];
+  views?: Array<Record<string, unknown>>;
+  commands?: unknown[];
+  archived?: boolean;
+  summaryMessageTs?: string;
+};
+
 export type MockSlackState = {
   team: MockSlackTeam;
   acceptedBotTokens?: string[];
@@ -94,6 +107,8 @@ export type MockSlackState = {
     status: string;
     title?: string;
   }>;
+  /** Code channels opened through agents.conversations.create. */
+  codeChannels?: MockSlackCodeChannel[];
   /**
    * Bearer tokens accepted by app-config endpoints (`apps.manifest.create`).
    * Slack app configuration tokens live in a different token space than bot
@@ -920,13 +935,20 @@ export class MockSlackServer {
           ts,
           payload: {
             channel: jsonBody.channel,
-            thread_ts: jsonBody.thread_ts,
+            // Slack documents thread_ts "0" as a top-level stream.
+            ...(jsonBody.thread_ts && jsonBody.thread_ts !== '0'
+              ? { thread_ts: jsonBody.thread_ts }
+              : {}),
             text: String(jsonBody.markdown_text ?? ''),
           },
           ephemeral: false,
         });
         // Slack starts (or resumes) the thread's agent session with each stream.
-        const threadTs = String(jsonBody.thread_ts ?? '');
+        // A top-level stream ("0") belongs to the channel-wide session.
+        const threadTs =
+          jsonBody.thread_ts && jsonBody.thread_ts !== '0'
+            ? String(jsonBody.thread_ts)
+            : '';
         const sessions = (this.state.agentSessions ??= []);
         const session = sessions.find(
           (entry) =>
@@ -1076,6 +1098,123 @@ export class MockSlackServer {
           messages,
           has_more: false,
         });
+        return;
+      }
+
+      case 'GET conversations.history': {
+        const channel = url.searchParams.get('channel') ?? '';
+        const oldest = url.searchParams.get('oldest');
+        const latest = url.searchParams.get('latest');
+        const inclusive = url.searchParams.get('inclusive') === 'true';
+        const messages = sortMessages(
+          (this.state.messages ?? []).filter((entry) => {
+            if (entry.channel !== channel || entry.ephemeral) return false;
+            // History lists top-level messages only.
+            if (entry.thread_ts && entry.thread_ts !== entry.ts) return false;
+            const numericTs = parseTs(entry.ts);
+            if (oldest) {
+              const oldestTs = parseTs(oldest);
+              if (inclusive ? numericTs < oldestTs : numericTs <= oldestTs) {
+                return false;
+              }
+            }
+            if (latest) {
+              const latestTs = parseTs(latest);
+              if (inclusive ? numericTs > latestTs : numericTs >= latestTs) {
+                return false;
+              }
+            }
+            return true;
+          }),
+        )
+          .reverse()
+          .map<SlackThreadMessage>((entry) => ({
+            user: entry.user,
+            username: entry.username,
+            text: entry.text,
+            ts: entry.ts,
+            bot_id: entry.bot_id,
+            type: entry.type,
+            ...(entry.blocks ? { blocks: entry.blocks } : {}),
+          }));
+        json(response, 200, { ok: true, messages, has_more: false });
+        return;
+      }
+
+      case 'POST agents.conversations.create': {
+        const codeChannels = (this.state.codeChannels ??= []);
+        const sessionId =
+          typeof jsonBody.session_id === 'string'
+            ? jsonBody.session_id
+            : undefined;
+        const existing = sessionId
+          ? codeChannels.find((entry) => entry.sessionId === sessionId)
+          : undefined;
+        if (existing) {
+          json(response, 200, { ok: true, channel_id: existing.id });
+          return;
+        }
+        const id = `CCODE${String(codeChannels.length + 1).padStart(4, '0')}`;
+        codeChannels.push({
+          id,
+          ...(sessionId ? { sessionId } : {}),
+          ...(typeof jsonBody.name === 'string' ? { name: jsonBody.name } : {}),
+          ...(typeof jsonBody.origin_channel_id === 'string'
+            ? { originChannelId: jsonBody.origin_channel_id }
+            : {}),
+          ...(typeof jsonBody.origin_message_ts === 'string'
+            ? { originMessageTs: jsonBody.origin_message_ts }
+            : {}),
+        });
+        this.state.channels = [
+          ...this.state.channels,
+          { id, name: `code-${id.toLowerCase()}` },
+        ];
+        json(response, 200, { ok: true, channel_id: id });
+        return;
+      }
+
+      case 'POST agents.conversations.setProperties':
+      case 'POST agents.conversations.setView':
+      case 'POST agents.conversations.setCommands':
+      case 'POST agents.conversations.archive': {
+        const codeChannel = (this.state.codeChannels ?? []).find(
+          (entry) => entry.id === String(jsonBody.channel_id ?? ''),
+        );
+        if (!codeChannel) {
+          json(response, 200, { ok: false, error: 'not_agent_channel' });
+          return;
+        }
+        if (path === 'agents.conversations.setProperties') {
+          const codeChannelProps = jsonBody.code_channel as
+            | { context_bar_items?: unknown[] }
+            | undefined;
+          if (codeChannelProps?.context_bar_items) {
+            codeChannel.contextBarItems = codeChannelProps.context_bar_items;
+          }
+        } else if (path === 'agents.conversations.setView') {
+          const views = (codeChannel.views ??= []);
+          const type = String(jsonBody.type ?? 'html');
+          const key = type === 'diff' ? 'diff' : String(jsonBody.view_key);
+          const index = views.findIndex((view) => view.key === key);
+          const view = { key, ...jsonBody };
+          if (index >= 0) views[index] = view;
+          else views.push(view);
+        } else if (path === 'agents.conversations.setCommands') {
+          codeChannel.commands = Array.isArray(jsonBody.commands)
+            ? jsonBody.commands
+            : [];
+        } else {
+          if (codeChannel.archived) {
+            json(response, 200, { ok: false, error: 'already_archived' });
+            return;
+          }
+          codeChannel.archived = true;
+          if (typeof jsonBody.summary_message_ts === 'string') {
+            codeChannel.summaryMessageTs = jsonBody.summary_message_ts;
+          }
+        }
+        json(response, 200, { ok: true });
         return;
       }
 
