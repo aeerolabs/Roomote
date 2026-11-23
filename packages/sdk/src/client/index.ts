@@ -107,6 +107,8 @@ const RETRYABLE_WORKER_TRPC_MUTATION_PATHS = new Map<
   // Idempotent full-card chat.update; the worker's detached card renders
   // swallow errors, so the settling render on exit must survive a blip.
   ['taskRuns.renderSlackLiveTaskCard', {}],
+  // Upsert of the code channel's single diff view.
+  ['taskRuns.publishSlackCodeChannelDiff', {}],
   ['taskRuns.claimGoalContinuation', {}],
   ['taskRuns.releaseGoalContinuation', {}],
   ['taskRuns.dequeue', WORKER_STARTUP_MUTATION_RETRY_OPTIONS],

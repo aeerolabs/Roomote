@@ -1,5 +1,5 @@
 {
-  "id": "21f368cc-9d67-404f-b3b5-3f349ece5694",
+  "id": "be0a1ae6-34e5-414b-a222-5efd82853665",
   "prevId": "80b20466-9897-4b6a-8b46-24b4b2db813e",
   "version": "7",
   "dialect": "postgresql",
@@ -14443,6 +14443,24 @@
         },
         "task_id": {
           "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "head_branch": {
+          "name": "head_branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_session_status": {
+          "name": "last_session_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "context_bar_hash": {
+          "name": "context_bar_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false

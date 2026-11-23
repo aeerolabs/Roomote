@@ -3,9 +3,11 @@ import { randomUUID } from 'node:crypto';
 import {
   and,
   db,
+  desc,
   eq,
   isNull,
   slackCodeChannels,
+  taskPullRequests,
   tasks,
 } from '@roomote/db/server';
 
@@ -30,6 +32,14 @@ import type { SlackNotifier } from './slack-notifier';
  */
 
 export const SLACK_CODE_CHANNELS_SCOPE = 'code_channels:manage';
+
+/** Per-channel agent slash commands (agents.conversations.setCommands). */
+export const SLACK_CODE_CHANNEL_COMMANDS = [
+  {
+    name: 'wrap-up',
+    description: 'Post a summary and archive this channel',
+  },
+] as const;
 
 export type SlackCodeChannel = typeof slackCodeChannels.$inferSelect;
 
@@ -106,7 +116,10 @@ function buildKickoffMarkdown(prompt: string, requesterUserId?: string) {
 export async function openSlackCodeChannel(params: {
   slack: Pick<
     SlackNotifier,
-    'createCodeChannel' | 'postMessageDetailed' | 'archiveCodeChannel'
+    | 'createCodeChannel'
+    | 'postMessageDetailed'
+    | 'archiveCodeChannel'
+    | 'setCodeChannelCommands'
   >;
   slackInstallationId: string;
   teamId: string;
@@ -164,6 +177,12 @@ export async function openSlackCodeChannel(params: {
   });
   const anchorTs = stored?.anchorTs ?? posted.ts;
   rememberSlackCodeChannelAnchor(created.channelId, anchorTs);
+  // Best effort: without a slash_command_url Slack rejects the registration
+  // and the channel simply has no agent commands.
+  await params.slack.setCodeChannelCommands({
+    channelId: created.channelId,
+    commands: [...SLACK_CODE_CHANNEL_COMMANDS],
+  });
   return { channelId: created.channelId, anchorTs };
 }
 
@@ -212,4 +231,78 @@ export async function markSlackCodeChannelArchived(params: {
       ),
     );
   forgetSlackCodeChannelAnchor(params.channelId);
+}
+
+function buildWrapUpSummary(params: {
+  title: string | null;
+  pullRequestUrl: string | null;
+  pullRequestNumber: number | null;
+}): string {
+  const lines = [
+    params.title ? `**Wrapped up:** ${params.title}` : '**Wrapped up.**',
+  ];
+  if (params.pullRequestUrl) {
+    const label = params.pullRequestNumber
+      ? `PR #${params.pullRequestNumber}`
+      : 'Pull request';
+    lines.push(`[${label}](${params.pullRequestUrl})`);
+  }
+  lines.push('This channel is archived and stays searchable.');
+  return lines.join('\n');
+}
+
+/**
+ * /wrap-up in a code channel: post a summary, record it as the channel's
+ * summary message and archive the channel.
+ */
+export async function wrapUpSlackCodeChannel(params: {
+  slack: Pick<SlackNotifier, 'postMessageDetailed' | 'archiveCodeChannel'>;
+  channel: SlackCodeChannel;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { channel, slack } = params;
+
+  const [task] = channel.taskId
+    ? await db
+        .select({ title: tasks.title })
+        .from(tasks)
+        .where(eq(tasks.id, channel.taskId))
+        .limit(1)
+    : [];
+  const [pullRequest] = channel.taskId
+    ? await db
+        .select({
+          prUrl: taskPullRequests.prUrl,
+          prNumber: taskPullRequests.prNumber,
+        })
+        .from(taskPullRequests)
+        .where(eq(taskPullRequests.taskId, channel.taskId))
+        .orderBy(desc(taskPullRequests.createdAt))
+        .limit(1)
+    : [];
+
+  const summary = buildWrapUpSummary({
+    title: task?.title ?? null,
+    pullRequestUrl: pullRequest?.prUrl ?? null,
+    pullRequestNumber: pullRequest?.prNumber ?? null,
+  });
+  const posted = await slack.postMessageDetailed({
+    channel: channel.channelId,
+    text: summary,
+    blocks: [{ type: 'markdown', text: summary }],
+    unfurl_links: false,
+    unfurl_media: false,
+  });
+
+  const archived = await slack.archiveCodeChannel({
+    channelId: channel.channelId,
+    ...(posted.ts ? { summaryMessageTs: posted.ts } : {}),
+  });
+  if (!archived.ok) {
+    return { ok: false, ...(archived.error ? { error: archived.error } : {}) };
+  }
+  await markSlackCodeChannelArchived({
+    teamId: channel.teamId,
+    channelId: channel.channelId,
+  });
+  return { ok: true };
 }

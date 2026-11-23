@@ -1,5 +1,6 @@
 import {
   renderSlackLiveTaskCard,
+  syncSlackCodeChannelForTask,
   type SlackLiveTaskCardRenderResult,
   type SlackLiveTaskCardRenderStatus,
 } from '@roomote/slack';
@@ -43,11 +44,45 @@ export async function renderSlackLiveTaskCardForRun(
     });
   }
 
-  return renderSlackLiveTaskCard({
+  const [rendered, codeChannelSync] = await Promise.all([
+    renderSlackLiveTaskCard({
+      taskId: run.taskId,
+      status: input.status,
+      ...(input.details ? { details: input.details } : {}),
+      ...(input.output ? { output: input.output } : {}),
+      taskTitle: run.task?.title,
+    }),
+    syncSlackCodeChannelForTask({
+      taskId: run.taskId,
+      status: input.status,
+    }).catch(() => ({ codeChannel: false })),
+  ]);
+  return codeChannelSync.codeChannel
+    ? { ...rendered, codeChannel: true }
+    : rendered;
+}
+
+/**
+ * The sandbox's branch diff for a task's Slack code channel (its Code tab).
+ * Credentials stay in the control plane; the worker only sends the diff text.
+ */
+export async function publishSlackCodeChannelDiffForRun(
+  runId: number,
+  input: { diff: string; baseBranch?: string; headBranch?: string },
+): Promise<{ codeChannel: boolean }> {
+  const run = await db.query.taskRuns.findFirst({
+    where: eq(taskRuns.id, runId),
+    columns: { taskId: true },
+  });
+  if (!run) return { codeChannel: false };
+
+  return syncSlackCodeChannelForTask({
     taskId: run.taskId,
-    status: input.status,
-    ...(input.details ? { details: input.details } : {}),
-    ...(input.output ? { output: input.output } : {}),
-    taskTitle: run.task?.title,
+    ...(input.headBranch ? { headBranch: input.headBranch } : {}),
+    diff: {
+      content: input.diff,
+      ...(input.baseBranch ? { baseBranch: input.baseBranch } : {}),
+      ...(input.headBranch ? { headBranch: input.headBranch } : {}),
+    },
   });
 }

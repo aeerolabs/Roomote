@@ -31,6 +31,7 @@ type SlackLiveTaskCardNotifier = Pick<
   | 'updateMessage'
   | 'createCodeChannel'
   | 'archiveCodeChannel'
+  | 'setCodeChannelCommands'
 >;
 
 type SlackLaunchTarget = {

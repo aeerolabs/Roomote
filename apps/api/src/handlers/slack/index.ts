@@ -30,6 +30,7 @@ import {
 import type { SlackWebhookBody } from './types.js';
 import { verifySlackRequest } from './verifySlackRequest.js';
 import { resumePendingSlackAuthRequest } from './events/auth-resume.js';
+import { handleSlackCodeChannelCommandRequest } from './code-channel-commands.js';
 
 export const slack = new Hono();
 
@@ -99,6 +100,16 @@ slack.post('/auth/resume', async (c) => {
         : 400;
 
   return c.json(result, { status });
+});
+
+slack.post('/code-channel-commands', async (c) => {
+  const result = await handleSlackCodeChannelCommandRequest({
+    headers: c.req.header(),
+    rawBody: await c.req.text(),
+  });
+  return c.json(result.body, {
+    status: result.status as 200 | 401 | 503,
+  });
 });
 
 slack.post('/', async (c) => {

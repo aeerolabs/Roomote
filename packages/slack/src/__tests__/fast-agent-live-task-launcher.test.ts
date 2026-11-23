@@ -110,6 +110,7 @@ function createLauncher(
       normalizeIncomingText: mocks.normalizeIncomingText,
       createCodeChannel: vi.fn(),
       archiveCodeChannel: vi.fn(),
+      setCodeChannelCommands: vi.fn(),
     },
     ...(codeChannels ? { codeChannels } : {}),
     userId: 'user-1',

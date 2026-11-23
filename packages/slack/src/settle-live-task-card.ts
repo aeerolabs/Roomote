@@ -21,6 +21,9 @@ export interface SlackLiveTaskCardRenderResult {
   card: boolean;
   /** True when Slack accepted the update. */
   updated: boolean;
+  /** True when the task runs in a Slack code channel; the worker then sends
+   * the branch diff for the channel's Code tab when a turn settles. */
+  codeChannel?: boolean;
 }
 
 function payloadUsesLiveTaskStream(payload: unknown): boolean {

@@ -259,6 +259,10 @@ export const renderSlackLiveTaskCard = (
   options: AppRouterInput['taskRuns']['renderSlackLiveTaskCard'],
 ) => client.taskRuns.renderSlackLiveTaskCard.mutate(options);
 
+export const publishSlackCodeChannelDiff = (
+  options: AppRouterInput['taskRuns']['publishSlackCodeChannelDiff'],
+) => client.taskRuns.publishSlackCodeChannelDiff.mutate(options);
+
 export const getResolvedGitAuthor = (
   options: AppRouterInput['taskRuns']['getResolvedGitAuthor'],
 ) => client.taskRuns.getResolvedGitAuthor.query(options);

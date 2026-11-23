@@ -716,6 +716,8 @@ export const runTask = async ({
   skipExternalSleepAction = false,
   keepaliveMsOverride,
 }: RunTaskOptions) => {
+  // Callbacks that read the checkout (the Slack code channel diff) find it here.
+  context.workspacePath = workspacePath;
   const userAttentionNotificationsEnabled = Boolean(
     task?.surface === 'web' &&
     task.initiatorUserId &&

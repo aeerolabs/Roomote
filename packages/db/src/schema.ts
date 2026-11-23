@@ -3018,6 +3018,12 @@ export const slackCodeChannels = pgTable(
     taskId: text('task_id').references(() => tasks.id, {
       onDelete: 'set null',
     }),
+    /** Working branch the sandbox last reported, shown in the context bar. */
+    headBranch: text('head_branch'),
+    /** Last session status sent, so repeated card renders do not resend it. */
+    lastSessionStatus: text('last_session_status'),
+    /** Hash of the context bar last sent (the array replaces the whole bar). */
+    contextBarHash: text('context_bar_hash'),
     archivedAt: timestamp('archived_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
