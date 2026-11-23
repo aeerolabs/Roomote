@@ -87,9 +87,19 @@ export function createFastAgentSlackLiveTaskLauncher(
         : {}),
     };
     if (!codeChannels) return threadTarget;
-    // Already inside a code channel: keep working there.
-    if (await resolveSlackCodeChannelAnchor(baseLauncherParams.channelId)) {
-      return threadTarget;
+    // Already inside a code channel: keep working there, and bind this task
+    // to it too so its status, context bar and diff follow the channel.
+    const existingAnchorTs = await resolveSlackCodeChannelAnchor(
+      baseLauncherParams.channelId,
+    );
+    if (existingAnchorTs) {
+      return {
+        ...threadTarget,
+        codeChannel: {
+          channelId: baseLauncherParams.channelId,
+          anchorTs: existingAnchorTs,
+        },
+      };
     }
 
     try {

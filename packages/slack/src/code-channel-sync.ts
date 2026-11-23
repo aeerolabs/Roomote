@@ -11,8 +11,9 @@ import {
   slackInstallations,
   taskPullRequests,
   taskRuns,
+  tasks,
 } from '@roomote/db/server';
-import { ALL_REPOSITORIES } from '@roomote/types';
+import { ALL_REPOSITORIES, NO_REPOSITORIES } from '@roomote/types';
 
 import {
   SlackNotifier,
@@ -75,7 +76,9 @@ async function buildContextBarItems(params: {
   const items: SlackCodeChannelContextBarItem[] = [];
   const repository =
     pullRequest?.repository ??
-    (typeof payloadRepo === 'string' && payloadRepo !== ALL_REPOSITORIES
+    (typeof payloadRepo === 'string' &&
+    payloadRepo !== ALL_REPOSITORIES &&
+    payloadRepo !== NO_REPOSITORIES
       ? payloadRepo
       : null);
   const repositoryUrl = pullRequest
@@ -167,9 +170,18 @@ export async function syncSlackCodeChannelForTask(params: {
       slackInstallations,
       eq(slackInstallations.id, slackCodeChannels.slackInstallationId),
     )
+    // Every task launched in the channel is bound to it through its Slack
+    // channel and thread, not only the task that opened it.
+    .innerJoin(
+      tasks,
+      and(
+        eq(tasks.slackChannelId, slackCodeChannels.channelId),
+        eq(tasks.slackThreadTs, slackCodeChannels.anchorTs),
+      ),
+    )
     .where(
       and(
-        eq(slackCodeChannels.taskId, params.taskId),
+        eq(tasks.id, params.taskId),
         isNull(slackCodeChannels.archivedAt),
         eq(slackInstallations.isActive, true),
       ),

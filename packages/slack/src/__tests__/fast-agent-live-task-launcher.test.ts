@@ -537,7 +537,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
       );
     });
 
-    it('keeps working in the current code channel instead of opening another', async () => {
+    it('keeps working in the current code channel and binds the new task to it', async () => {
       mocks.resolveSlackCodeChannelAnchor.mockResolvedValue('100.001');
 
       await createLauncher(undefined, { slackInstallationId: 'install-1' })(
@@ -548,6 +548,13 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
       expect(mocks.enqueueTask).toHaveBeenCalledWith(
         expect.objectContaining({ channelId: 'C123', threadTs: '100.001' }),
       );
+      // A later task in the channel follows it like the first one did.
+      expect(mocks.bindTaskToSlackCodeChannel).toHaveBeenCalledWith({
+        channelId: 'C123',
+        anchorTs: '100.001',
+        taskId: 'task-1',
+        teamId: 'T123',
+      });
     });
 
     it('never opens a code channel when the installation lacks the scope', async () => {

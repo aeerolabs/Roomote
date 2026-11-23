@@ -261,24 +261,33 @@ export async function wrapUpSlackCodeChannel(params: {
 }): Promise<{ ok: boolean; error?: string }> {
   const { channel, slack } = params;
 
-  const [task] = channel.taskId
-    ? await db
-        .select({ title: tasks.title })
-        .from(tasks)
-        .where(eq(tasks.id, channel.taskId))
-        .limit(1)
-    : [];
-  const [pullRequest] = channel.taskId
-    ? await db
-        .select({
-          prUrl: taskPullRequests.prUrl,
-          prNumber: taskPullRequests.prNumber,
-        })
-        .from(taskPullRequests)
-        .where(eq(taskPullRequests.taskId, channel.taskId))
-        .orderBy(desc(taskPullRequests.createdAt))
-        .limit(1)
-    : [];
+  // The channel's most recent task carries the work being wrapped up.
+  const [task] = await db
+    .select({ id: tasks.id, title: tasks.title })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.slackChannelId, channel.channelId),
+        eq(tasks.slackThreadTs, channel.anchorTs),
+      ),
+    )
+    .orderBy(desc(tasks.createdAt))
+    .limit(1);
+  const [pullRequest] = await db
+    .select({
+      prUrl: taskPullRequests.prUrl,
+      prNumber: taskPullRequests.prNumber,
+    })
+    .from(taskPullRequests)
+    .innerJoin(tasks, eq(tasks.id, taskPullRequests.taskId))
+    .where(
+      and(
+        eq(tasks.slackChannelId, channel.channelId),
+        eq(tasks.slackThreadTs, channel.anchorTs),
+      ),
+    )
+    .orderBy(desc(taskPullRequests.createdAt))
+    .limit(1);
 
   const summary = buildWrapUpSummary({
     title: task?.title ?? null,

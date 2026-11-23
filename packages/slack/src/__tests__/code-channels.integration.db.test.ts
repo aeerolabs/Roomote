@@ -186,6 +186,27 @@ describe('Slack code channels over HTTP (mock Slack + database)', () => {
       }),
     ]);
 
+    // A later task started inside the channel follows it too.
+    const followUpTask = await taskFactory.create({
+      title: 'Also cover the retry path',
+    });
+    await bindTaskToSlackCodeChannel({
+      channelId,
+      anchorTs,
+      taskId: followUpTask.id,
+      teamId,
+    });
+    await expect(
+      syncSlackCodeChannelForTask({
+        taskId: followUpTask.id,
+        status: 'complete',
+      }),
+    ).resolves.toEqual({ codeChannel: true });
+    state = await readState();
+    expect(
+      state.agentSessions?.find((entry) => entry.channel === channelId),
+    ).toMatchObject({ status: 'active' });
+
     // /wrap-up posts the summary and archives with it.
     const row = await findSlackCodeChannel({ teamId, channelId });
     await expect(
@@ -194,6 +215,8 @@ describe('Slack code channels over HTTP (mock Slack + database)', () => {
     state = await readState();
     const summary = (state.messages ?? []).at(-1);
     expect(summary).toMatchObject({ channel: channelId });
+    // The summary names the channel's latest task and its PR.
+    expect(summary?.text).toContain('Also cover the retry path');
     expect(summary?.text).toContain('PR #42');
     expect(state.codeChannels?.[0]).toMatchObject({
       archived: true,
