@@ -144,7 +144,7 @@ export function PullRequestsList({ enabled }: PullRequestsListProps) {
                 <TabsTrigger
                   key={option.value}
                   value={option.value}
-                  className="h-8 flex-none gap-1.5 rounded-none border-none px-4 text-xs text-muted-foreground hover:text-accent-foreground! data-[state=active]:bg-foreground dark:data-[state=active]:text-accent-foreground dark:data-[state=active]:bg-accent-foreground dark:data-[state=active]:text-card data-[state=active]:shadow-none"
+                  className="h-8 flex-none gap-1.5 rounded-none border-none px-4 text-xs text-muted-foreground hover:text-accent-foreground! data-[state=active]:bg-accent-fill data-[state=active]:text-accent-fill-foreground data-[state=active]:shadow-none"
                 >
                   <Icon className="size-3" />
                   {option.label}

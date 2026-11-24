@@ -11,11 +11,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-foreground text-card hover:bg-black/80 hover:text-accent-bright-foreground dark:hover:bg-accent-foreground dark:hover:text-card disabled:bg-foreground/30 disabled:text-foreground/30',
+          'bg-foreground text-card hover:bg-black/80 hover:text-accent-bright-foreground dark:hover:bg-accent-fill dark:hover:text-accent-fill-foreground disabled:bg-foreground/30 disabled:text-foreground/30',
         destructive:
           'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 disabled:bg-destructive/20',
         outline:
-          'border border-foreground/40 bg-transparent hover:bg-accent-foreground dark:hover:bg-transparent dark:hover:border-accent-foreground dark:hover:text-accent-foreground disabled:border-foreground/20 disabled:text-foreground/30',
+          'border border-foreground/40 bg-transparent hover:bg-accent-fill hover:text-accent-fill-foreground dark:hover:bg-transparent dark:hover:border-accent-foreground dark:hover:text-accent-foreground disabled:border-foreground/20 disabled:text-foreground/30',
         'destructive-outline':
           'border border-destructive bg-transparent hover:bg-transparent hover:text-destructive',
         secondary:

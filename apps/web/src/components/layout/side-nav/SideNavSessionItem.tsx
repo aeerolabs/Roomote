@@ -35,7 +35,7 @@ export function SideNavSessionItem({
       className={cn(
         'ph-no-capture flex min-h-10 w-full items-center rounded-lg pl-2 transition-all',
         isActive
-          ? 'pr-2 bg-foreground text-accent-bright-foreground dark:bg-accent-foreground dark:text-card'
+          ? 'pr-2 bg-accent-fill text-accent-fill-foreground'
           : 'text-muted-foreground hover:text-accent-foreground',
       )}
     >

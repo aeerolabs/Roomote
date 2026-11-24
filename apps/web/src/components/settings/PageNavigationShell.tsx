@@ -65,7 +65,7 @@ export function PageNavigationShell<T extends string = string>({
                 'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-base transition-colors cursor-pointer',
                 item.newGroup && 'mt-6',
                 isActive
-                  ? 'bg-foreground font-medium text-accent-bright-foreground dark:bg-accent-foreground dark:text-card'
+                  ? 'bg-accent-fill font-medium text-accent-fill-foreground'
                   : 'text-foreground hover:text-accent-foreground',
               );
 

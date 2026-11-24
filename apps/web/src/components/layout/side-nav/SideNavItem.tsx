@@ -97,7 +97,7 @@ export const SideNavItem = forwardRef<HTMLButtonElement, SideNavItemProps>(
       disabled &&
         'cursor-not-allowed opacity-50 !bg-transparent hover:!bg-transparent',
       isCurrentItem
-        ? '!bg-foreground !text-accent-bright-foreground dark:!bg-accent-foreground dark:!text-card'
+        ? '!bg-accent-fill !text-accent-fill-foreground'
         : 'text-foreground hover:text-accent-foreground hover:bg-transparent',
       className,
     );
@@ -119,8 +119,8 @@ export const SideNavItem = forwardRef<HTMLButtonElement, SideNavItemProps>(
                   expanded ? '-top-0.5 -right-1' : '-top-0.5 -right-0.5',
                 )}
               >
-                <span className="absolute inline-flex size-2 animate-ping rounded-full bg-accent-foreground opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-accent-foreground" />
+                <span className="absolute inline-flex size-2 animate-ping rounded-full bg-accent-fill opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-accent-fill" />
               </span>
             ) : null}
           </span>
