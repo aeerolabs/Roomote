@@ -62,6 +62,7 @@ import {
   resolveActorScopedUserContext,
   type ActorScopedUserContext,
 } from '../lib/auth';
+import { filterMcpServersForUser } from '../lib/role-access';
 import {
   readCredentialEgressDelivery,
   markCredentialEgressBootstrapReady,
@@ -124,7 +125,7 @@ async function resolveMcpServerConfigs(options: {
   quiet?: boolean;
 }): Promise<ResolvedMcpServerConfigs> {
   const logInfo: InfoLogger = options.quiet ? () => {} : console.info;
-  const servers: ResolvedMcpServerConfigs = {};
+  let servers: ResolvedMcpServerConfigs = {};
   const curatedEnabled = !areCuratedIntegrationsDisabled(
     Env.R_CURATED_INTEGRATIONS_DISABLED,
   );
@@ -192,6 +193,16 @@ async function resolveMcpServerConfigs(options: {
     url: `${options.requestOrigin ?? ''}${HTTP_INTEGRATIONS_MCP_PATH}`,
     headers: {},
   };
+
+  // R_ROLE_ACCESS_POLICY: a server listed there is mounted only for a person
+  // holding one of its Entra roles. The proxy enforces the same rule per call.
+  servers = await filterMcpServersForUser(
+    servers,
+    async () =>
+      actorContext.userId ??
+      (await resolveActorScopedUserContext(options.auth)).userId ??
+      null,
+  );
   // A worker writes what it receives into an agent's MCP configuration, so
   // it gets the connection fields only. The cache revision and the approval
   // policy scope are control-plane metadata for Roomote's Session runtime.

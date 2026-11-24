@@ -7,6 +7,7 @@ import {
 } from '@roomote/types';
 import { z } from 'zod';
 
+import { parseRoleAccessPolicy } from './role-access-policy';
 import {
   getDefaultPreviewProxyBaseUrl,
   getDefaultRoomoteAppUrl,
@@ -409,6 +410,22 @@ const serverSchema = {
   GITHUB_AUTOMATED_SKIP_OWNERS: z.string().optional(),
   PREVIEW_DOMAINS: emptyStringDefault(),
   R_ALLOWED_EMAILS: z.string().optional(),
+  // JSON policy that gates deployment secrets, MCP servers and per-task AWS
+  // credentials on the acting person's Microsoft Entra app roles. Unset keeps
+  // every task on today's behavior. See role-access-policy.ts for the shape.
+  R_ROLE_ACCESS_POLICY: z
+    .string()
+    .optional()
+    .superRefine((value, ctx) => {
+      try {
+        parseRoleAccessPolicy(value);
+      } catch (error) {
+        ctx.addIssue({
+          code: 'custom',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }),
   // Signed deployment key Roomote Cloud provisions onto the deployments it
   // hosts. It authenticates the deployment to Cloud services such as managed
   // email. Self-hosted deployments leave it unset.
@@ -813,6 +830,7 @@ const OPTIONAL_NON_EMPTY_KEYS = new Set([
   'R_PLANNING_MODEL_REASONING_EFFORT',
   'R_MODEL_ENV_KEYS',
   'R_ALLOWED_EMAILS',
+  'R_ROLE_ACCESS_POLICY',
   'R_LICENSE_KEY',
   'R_LICENSE_CLOUD_BASE_URL',
   'R_GITHUB_APP_SLUG',
@@ -1264,5 +1282,6 @@ export function rehydrateEnv(
 export const Env = createEnvProxy(getSharedEnv);
 
 export * from './app-env';
+export * from './role-access-policy';
 export * from './runtime-bootstrap';
 export * from './secrets';

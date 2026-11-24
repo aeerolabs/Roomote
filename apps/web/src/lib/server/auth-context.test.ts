@@ -143,6 +143,10 @@ vi.mock('./invites', () => ({
   redeemInvite: vi.fn(async () => true),
 }));
 
+vi.mock('./entra-roles', () => ({
+  getEntraRolesMetadataForNewUser: vi.fn(async () => ({})),
+}));
+
 import { authorize } from './auth-context';
 
 describe('authorize', () => {

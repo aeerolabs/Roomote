@@ -28,6 +28,7 @@ import { granolaMcp } from './granola';
 import { grafanaMcp } from './grafana';
 import { getIntegrationMcpProxyOptions } from './integration-mcp-policy';
 import { createLinearMcp } from './linear';
+import { requireMcpServerAccess } from './proxy-utils';
 import { activeRunMcpAuthMiddleware, mcpAuthMiddleware } from './middleware';
 import { notionMcp } from './notion';
 import { slackMcp } from './slack';
@@ -54,8 +55,9 @@ const requireCuratedIntegrations: MiddlewareHandler<{
 };
 
 for (const integration of MCP_INTEGRATIONS) {
-  mcp.use(`/${integration.id}`, requireCuratedIntegrations);
-  mcp.use(`/${integration.id}/*`, requireCuratedIntegrations);
+  const requireAccess = requireMcpServerAccess(integration.id);
+  mcp.use(`/${integration.id}`, requireCuratedIntegrations, requireAccess);
+  mcp.use(`/${integration.id}/*`, requireCuratedIntegrations, requireAccess);
 }
 
 // Deployment custom servers have their own kill switch, deliberately

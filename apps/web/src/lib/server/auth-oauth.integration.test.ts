@@ -1,7 +1,7 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { authAccounts, authUsers, db, eq } from '@roomote/db/server';
+import { authAccounts, authUsers, db, eq, users } from '@roomote/db/server';
 
 vi.mock('./bootstrap-runtime-env', () => ({ bootstrapWebRuntimeEnv: vi.fn() }));
 vi.mock('./auth-provider-config', () => ({
@@ -25,6 +25,7 @@ vi.mock('./access-policy', () => ({
 
 import { resolveAuthProviderConfig } from './auth-provider-config';
 import { handleAuthRequest } from './auth';
+import { getEntraRolesMetadataForNewUser } from './entra-roles';
 
 const TENANT = '12345678-1234-1234-1234-123456789abc';
 const CONSUMER = '9188040d-6c67-4c5b-b112-36a304b66dad';
@@ -586,6 +587,59 @@ it.each([
     ).toBeNull();
   },
 );
+
+it('saves Entra app roles from each Microsoft sign-in on the user', async () => {
+  const user = await existingUser('microsoft-entra-id');
+  await db.insert(users).values({
+    id: user.id,
+    name: 'Returning Fixture',
+    email: `${subject}@example.test`,
+    imageUrl: '',
+    entity: { id: user.id },
+    metadata: { keepMe: true },
+  });
+
+  try {
+    extraClaims = { roles: ['Kojo.Langfuse', 'Kojo.AWS.Admin'] };
+    await finish('microsoft-entra-id', await start('microsoft-entra-id'));
+
+    const first = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+    });
+    expect(first?.metadata).toMatchObject({
+      keepMe: true,
+      entraRoles: ['Kojo.AWS.Admin', 'Kojo.Langfuse'],
+      entraRolesUpdatedAt: expect.any(String),
+    });
+
+    // An unassigned role disappears at the next sign-in.
+    extraClaims = {};
+    await finish('microsoft-entra-id', await start('microsoft-entra-id'));
+
+    const second = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+    });
+    expect(second?.metadata).toMatchObject({ keepMe: true, entraRoles: [] });
+  } finally {
+    await db.delete(users).where(eq(users.id, user.id));
+  }
+});
+
+it('carries Entra roles from a first Microsoft sign-in into the new user row', async () => {
+  extraClaims = { roles: ['Kojo.AWS.ReadOnly'] };
+  const response = await finish(
+    'microsoft-entra-id',
+    await start('microsoft-entra-id'),
+  );
+  const session = await (
+    await request('get-session', undefined, cookies(response))
+  ).json();
+  userIds.push(session.user.id);
+
+  await expect(
+    getEntraRolesMetadataForNewUser(session.user.id),
+  ).resolves.toMatchObject({ entraRoles: ['Kojo.AWS.ReadOnly'] });
+});
 
 it('completes a legacy Microsoft form POST callback', async () => {
   const user = await existingUser('microsoft-entra-id');

@@ -259,6 +259,11 @@ describe('dequeueResumeTaskRun', () => {
       {
         sourceControlProvider: ['gitlab', 'github'],
         includeSandboxOpenRouterApiKey: true,
+        // The acting person's Entra roles gate the resumed sandbox's env.
+        roleAccess: {
+          taskRun: expect.objectContaining({ taskId: expect.any(String) }),
+          mintAwsCredentials: true,
+        },
       },
     );
     expect(result?.harnessInstructions).toBe('preserved instructions');

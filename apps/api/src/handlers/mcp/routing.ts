@@ -8,6 +8,7 @@ import { getAllowedRouterMcpToolNames } from '@roomote/cloud-agents/router-mcp-p
 import { createGithubMcp } from './github';
 import { createGitlabMcp } from './gitlab';
 import { createLinearMcp } from './linear';
+import { requireMcpServerAccess } from './proxy-utils';
 import { roomoteMcp } from './roomote';
 
 /**
@@ -28,6 +29,11 @@ const requireCuratedIntegrations: MiddlewareHandler<{
 };
 
 mcpRouting.route('/roomote', roomoteMcp);
+for (const serverId of ['gitlab', 'linear', 'github']) {
+  mcpRouting.use(`/${serverId}`, requireMcpServerAccess(serverId));
+  mcpRouting.use(`/${serverId}/*`, requireMcpServerAccess(serverId));
+}
+
 mcpRouting.use('/gitlab', requireCuratedIntegrations);
 mcpRouting.use('/gitlab/*', requireCuratedIntegrations);
 mcpRouting.route('/gitlab', createGitlabMcp());
