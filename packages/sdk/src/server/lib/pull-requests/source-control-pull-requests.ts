@@ -855,7 +855,7 @@ function prependCanonicalPrAttribution(body: string, line: string): string {
     firstLineEnd === -1 ? remainingBody.length : firstLineEnd,
   );
   if (
-    /^> (?:Opened on behalf of .+\.|Created by Roomote\.) (?:Follow up by mentioning @|\[View the task\]\().+$/u.test(
+    /^> (?:Opened on behalf of .+\.|Created by (?:Kojo|Roomote)\.) (?:Follow up by mentioning @|\[View the task\]\().+$/u.test(
       firstLine.trimStart(),
     )
   ) {

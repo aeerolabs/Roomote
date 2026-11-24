@@ -75,7 +75,7 @@ describe('getPrBodyAttributionLine', () => {
       taskUrl: 'https://example.com/sessions/origin',
       taskSurface: 'web',
     });
-    expect(line).toContain('Created by Roomote.');
+    expect(line).toContain('Created by Kojo.');
     expect(line).toContain(
       '[View the session](https://example.com/sessions/origin)',
     );

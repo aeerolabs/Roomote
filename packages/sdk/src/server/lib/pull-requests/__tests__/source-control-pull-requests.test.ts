@@ -279,7 +279,7 @@ beforeEach(() => {
     ({ attribution }: { attribution: { kind: string; displayName: string } }) =>
       attributionBody(
         attribution.kind === 'roomote'
-          ? 'Created by Roomote.'
+          ? 'Created by Kojo.'
           : `Opened on behalf of ${attribution.displayName}.`,
       ),
   );
@@ -472,7 +472,7 @@ describe('createOrUpdateSourceControlPullRequestForTaskRun', () => {
         }),
         body: JSON.stringify({
           title: '[Fix] Provider neutral PRs',
-          description: `${attributionBody('Created by Roomote.')}\n\nBody`,
+          description: `${attributionBody('Created by Kojo.')}\n\nBody`,
         }),
       }),
     );
@@ -724,7 +724,7 @@ describe('platform-managed draft state', () => {
       input: {
         ...githubInput,
         body: `${attributionBody(
-          'Created by Roomote.',
+          'Created by Kojo.',
           'Follow up by mentioning @roomote or in [the web UI](https://example.com/task/1).',
         )}\n\n## What changed\n\nDone.`,
       },
@@ -758,7 +758,7 @@ describe('platform-managed draft state', () => {
       input: {
         ...githubInput,
         body: attributionBody(
-          'Created by Roomote.',
+          'Created by Kojo.',
           'Follow up by mentioning @roomote or in [the web UI](https://example.com/task/1).',
         ),
       },
@@ -775,7 +775,7 @@ describe('platform-managed draft state', () => {
   it('generates canonical attribution when the input has a stale custom slug', async () => {
     mockResolveConfiguredGitHubAppSlugIfConfigured.mockResolvedValue(null);
     const preservedBody =
-      '> Created by Roomote. Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).\n\n## What changed\n\nDone.';
+      '> Created by Kojo. Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).\n\n## What changed\n\nDone.';
     makeOctokit({
       created: {
         number: 13,
@@ -850,7 +850,7 @@ describe('platform-managed draft state', () => {
       repo: 'web',
       pull_number: 11,
       title: '[Feature] X',
-      body: `${attributionBody('Created by Roomote.')}
+      body: `${attributionBody('Created by Kojo.')}
 
 Body`,
     });
@@ -884,7 +884,7 @@ Body`,
       repo: 'web',
       pull_number: 11,
       title: '[Feature] X',
-      body: `${attributionBody('Created by Roomote.')}
+      body: `${attributionBody('Created by Kojo.')}
 
 Body`,
     });
@@ -1403,7 +1403,7 @@ describe('optional targetBranch', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('Created by Roomote.'),
+        body: expect.stringContaining('Created by Kojo.'),
       }),
     );
   });
@@ -1539,7 +1539,7 @@ describe('optional targetBranch', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: attributionBody('Created by Roomote.'),
+        body: attributionBody('Created by Kojo.'),
       }),
     );
   });
@@ -1698,7 +1698,7 @@ describe('optional targetBranch', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: attributionBody('Created by Roomote.'),
+        body: attributionBody('Created by Kojo.'),
       }),
     );
   });
@@ -1879,7 +1879,7 @@ describe('optional targetBranch', () => {
     'keeps inherited %s provenance during the final provider mutation',
     async (_label, payload, expectedMetadata, conversationLink) => {
       const canonicalAttribution = attributionBody(
-        'Created by Roomote.',
+        'Created by Kojo.',
         `Follow up by mentioning @roomote or in ${conversationLink}.`,
       );
       const octokit = makeOctokit({
@@ -1912,7 +1912,7 @@ describe('optional targetBranch', () => {
         input: {
           ...baseInput,
           targetBranch: 'develop',
-          body: `${attributionBody('Created by Roomote.')}
+          body: `${attributionBody('Created by Kojo.')}
 
 ## What changed
 
@@ -2241,7 +2241,7 @@ Done.`,
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: `${attributionBody('Created by Roomote.')}\n\nDone.`,
+        body: `${attributionBody('Created by Kojo.')}\n\nDone.`,
       }),
     );
   });
@@ -2259,9 +2259,9 @@ Done.`,
       },
     });
     const harnessAttribution =
-      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
+      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
     const canonicalAttribution =
-      '> \u200B<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
+      '> \u200B<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
     mockGetPrBodyAttributionLine.mockReturnValueOnce(canonicalAttribution);
 
     await createOrUpdateSourceControlPullRequestForTaskRun({
@@ -2282,9 +2282,9 @@ Done.`,
 
   it('collapses the exact duplicated PR attribution shape to one canonical line', async () => {
     const harnessAttribution =
-      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
+      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
     const staleCanonicalAttribution =
-      '> \u200B<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
+      '> \u200B<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
     const duplicatedBody = `${harnessAttribution}\n\n${staleCanonicalAttribution}\n\n## What changed\n\nDone.`;
     const existing = {
       number: 13,
@@ -2296,7 +2296,7 @@ Done.`,
       body: duplicatedBody,
     };
     const octokit = makeOctokit({ list: [existing], updated: existing });
-    const canonicalAttribution = attributionBody('Created by Roomote.');
+    const canonicalAttribution = attributionBody('Created by Kojo.');
     mockGetPrBodyAttributionLine.mockReturnValueOnce(canonicalAttribution);
 
     await createOrUpdateSourceControlPullRequestForTaskRun({
