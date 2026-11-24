@@ -22,6 +22,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-bright-foreground: var(--accent-bright-foreground);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-foreground: var(--accent-fill-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-destructive: var(--destructive);
@@ -376,6 +378,8 @@
   --accent: var(--background);
   --accent-foreground: #ae1a1a;
   --accent-bright-foreground: oklch(0.86 0.07 22);
+  --accent-fill: #ae1a1a;
+  --accent-fill-foreground: oklch(1 0 0);
   --warning: oklch(0.77 0.15 80);
   --warning-foreground: oklch(0.25 0.06 85);
   --destructive: oklch(0.65 0.2 25);
@@ -475,6 +479,8 @@ html[data-status-banner-visible='true'] {
   --accent: var(--background);
   --accent-foreground: oklch(0.66 0.21 27);
   --accent-bright-foreground: oklch(0.86 0.07 22);
+  --accent-fill: #ae1a1a;
+  --accent-fill-foreground: oklch(1 0 0);
   --warning: oklch(0.77 0.15 80);
   --warning-foreground: oklch(0.25 0.06 85);
   --destructive: oklch(0.6 0.2 25);
@@ -1162,7 +1168,7 @@ html[data-status-banner-visible='true'] {
 }
 
 .permalink-highlight:before {
-  @apply block absolute rounded-full left-0 bg-accent-foreground;
+  @apply block absolute rounded-full left-0 bg-accent-fill;
   content: '';
   top: 2rem;
   bottom: 2rem;

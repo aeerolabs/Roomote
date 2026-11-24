@@ -472,7 +472,7 @@ export function ResultsPage() {
                           className={cn(
                             'group flex w-full cursor-pointer items-start gap-3 py-4 pr-3 pl-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                             isSelected
-                              ? 'bg-accent-foreground text-black'
+                              ? 'bg-accent-fill text-accent-fill-foreground'
                               : 'hover:bg-accent-foreground/10',
                           )}
                           onClick={() => selectResult(result)}

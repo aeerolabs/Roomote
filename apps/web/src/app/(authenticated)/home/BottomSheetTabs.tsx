@@ -122,7 +122,7 @@ export function BottomSheetTabs({ onExpandedChange }: BottomSheetTabsProps) {
               className={cn(
                 'pl-4 pr-5 py-3 cursor-pointer font-semibold text-left transition-colors text-nowrap',
                 activeTab === 'recent'
-                  ? 'bg-foreground text-accent-foreground dark:bg-accent-foreground dark:text-card'
+                  ? 'bg-accent-fill text-accent-fill-foreground'
                   : 'text-muted-foreground/80 hover:text-accent-foreground',
               )}
             >
@@ -137,7 +137,7 @@ export function BottomSheetTabs({ onExpandedChange }: BottomSheetTabsProps) {
               className={cn(
                 'px-5 py-3 cursor-pointer font-semibold text-left transition-colors text-nowrap',
                 activeTab === 'pullRequests'
-                  ? 'bg-foreground text-accent-foreground dark:bg-accent-foreground dark:text-card'
+                  ? 'bg-accent-fill text-accent-fill-foreground'
                   : 'text-muted-foreground/80 hover:text-accent-foreground',
               )}
             >

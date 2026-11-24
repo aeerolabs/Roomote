@@ -155,7 +155,7 @@ export function SessionCard({
           {session.unread && session.ownerUserId === viewerUserId ? (
             <span
               aria-label="Unread activity"
-              className="absolute top-0 right-0 size-2 rounded-full bg-accent-foreground ring-2 ring-background"
+              className="absolute top-0 right-0 size-2 rounded-full bg-accent-fill ring-2 ring-background"
             />
           ) : null}
         </SessionSelectionControl>
