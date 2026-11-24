@@ -85,7 +85,7 @@ export function buildTelegramLiveTaskMessage(
   const running =
     content.status === 'running' ? buildRunningContent(progress) : null;
   const footerText = content.taskUrl
-    ? `Open in Roomote: ${content.taskUrl}`
+    ? `Open task: ${content.taskUrl}`
     : undefined;
   const text = truncate(
     running?.details
@@ -98,7 +98,7 @@ export function buildTelegramLiveTaskMessage(
   const detailsBodyPrefix = '\n\n';
   const detailsSuffix = '\n\n</details>';
   const footerHtmlText = content.taskUrl
-    ? `<a href="${escapeHtmlAttribute(content.taskUrl)}">Open in Roomote</a>`
+    ? `<a href="${escapeHtmlAttribute(content.taskUrl)}">Open task</a>`
     : undefined;
   const footerHtmlBudget = footerHtmlText
     ? footerHtmlText.length + '\n\n<footer></footer>'.length

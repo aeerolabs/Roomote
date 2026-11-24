@@ -146,11 +146,11 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
   const taskLinkFallback = {
     channel: 'C123',
     thread_ts: '100.001',
-    text: 'Open in Roomote: https://roomote.example/task/task-1',
+    text: 'Open task: https://roomote.example/task/task-1',
     blocks: [
       {
         type: 'markdown',
-        text: '[Open in Roomote](https://roomote.example/task/task-1)',
+        text: '[Open task](https://roomote.example/task/task-1)',
       },
     ],
     unfurl_links: false,
@@ -191,7 +191,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
     expect(mocks.postMessageDetailed).toHaveBeenCalledWith({
       channel: 'C123',
       thread_ts: '100.001',
-      text: 'Starting task…\n<https://roomote.example/task/task-1|Open in Roomote>',
+      text: 'Starting task…\n<https://roomote.example/task/task-1|Open task>',
       blocks: [
         {
           type: 'task_card',
@@ -203,7 +203,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
             {
               type: 'url',
               url: 'https://roomote.example/task/task-1',
-              text: 'Open in Roomote',
+              text: 'Open task',
             },
           ],
         },
@@ -300,9 +300,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
       expect.objectContaining({
         blocks: [
           expect.objectContaining({
-            sources: [
-              { type: 'url', url: sessionUrl, text: 'Open in Roomote' },
-            ],
+            sources: [{ type: 'url', url: sessionUrl, text: 'Open task' }],
           }),
         ],
       }),
@@ -406,11 +404,11 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
       'https://roomote.example/sessions/session-1?utm_source=slack&utm_medium=link&utm_campaign=fast-delegation&task=task-1';
     expect(mocks.postMessage).toHaveBeenCalledWith({
       ...taskLinkFallback,
-      text: `Open in Roomote: ${sessionUrl}`,
+      text: `Open task: ${sessionUrl}`,
       blocks: [
         {
           type: 'markdown',
-          text: `[Open in Roomote](${sessionUrl})`,
+          text: `[Open task](${sessionUrl})`,
         },
       ],
     });
@@ -439,7 +437,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
               {
                 type: 'url',
                 url: 'https://roomote.example/task/task-1',
-                text: 'Open in Roomote',
+                text: 'Open task',
               },
             ],
           }),

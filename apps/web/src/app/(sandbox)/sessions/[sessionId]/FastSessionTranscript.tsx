@@ -144,7 +144,8 @@ type TranscriptOwner = {
   imageUrl: string | null;
 };
 
-const ROOMOTE_KICKOFF_LINK = /\r?\n\r?\n\[Open in Roomote\]\([^\r\n]+\)\s*$/;
+const ROOMOTE_KICKOFF_LINK =
+  /\r?\n\r?\n\[(?:Open task|Open in Roomote)\]\([^\r\n]+\)\s*$/;
 
 function getTranscriptMessageText(message: TranscriptMessage) {
   const text = getTextFromContentBlocks(message.contentBlocks) ?? undefined;

@@ -54,13 +54,13 @@ describe('buildSlackLiveTaskCardBlocks', () => {
           {
             type: 'url',
             url: 'https://roomote.example/task/task-1',
-            text: 'Open in Roomote',
+            text: 'Open task',
           },
         ],
       });
       expect(blocks[0]).not.toHaveProperty('output');
       expect(text).toBe(
-        'Fix the button\nRunning the tests.\n<https://roomote.example/task/task-1|Open in Roomote>',
+        'Fix the button\nRunning the tests.\n<https://roomote.example/task/task-1|Open task>',
       );
     },
   );

@@ -139,7 +139,7 @@ export function createFastAgentSlackLiveTaskLauncher(
     };
 
     const postTaskLink = async (taskUrl: string): Promise<void> => {
-      const label = 'Open in Roomote';
+      const label = 'Open task';
       try {
         await slack.postMessage({
           channel: launcherParams.channelId,

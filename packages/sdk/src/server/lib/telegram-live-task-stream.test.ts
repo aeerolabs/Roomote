@@ -72,9 +72,9 @@ describe('Telegram live task stream', () => {
       threadId: '77',
       text: 'Starting task…',
       htmlText: 'Starting task…',
-      footerText: expect.stringMatching(/^Open in Roomote: .*task=task-1/),
+      footerText: expect.stringMatching(/^Open task: .*task=task-1/),
       footerHtmlText: expect.stringMatching(
-        /^<a href=".*task=task-1.*">Open in Roomote<\/a>/,
+        /^<a href=".*task=task-1.*">Open task<\/a>/,
       ),
     });
 
@@ -98,7 +98,7 @@ describe('Telegram live task stream', () => {
         text: 'Running tests.\n\nChecking Telegram fallback behavior.',
         htmlText:
           '<details><summary>Running tests.</summary>\n\nChecking Telegram fallback behavior.\n\n</details>',
-        footerText: expect.stringMatching(/^Open in Roomote:/),
+        footerText: expect.stringMatching(/^Open task:/),
         footerHtmlText: expect.stringMatching(/^<a href=/),
       }),
     );
@@ -117,7 +117,7 @@ describe('Telegram live task stream', () => {
     expect(mocks.editMessageText).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'Waiting for your input…',
-        footerText: expect.stringMatching(/^Open in Roomote:/),
+        footerText: expect.stringMatching(/^Open task:/),
       }),
     );
   });
@@ -149,7 +149,7 @@ describe('Telegram live task stream', () => {
         channelId: '-1001',
         messageId: '88',
         text: 'A resumed run is working.',
-        footerText: expect.stringMatching(/^Open in Roomote:/),
+        footerText: expect.stringMatching(/^Open task:/),
       }),
     );
   });
@@ -176,7 +176,7 @@ describe('Telegram live task stream', () => {
       };
       expect(`${edit.text}\n\n${edit.footerText}`).toMatch(
         new RegExp(
-          `^${label === 'Failed' ? 'Task failed\\.' : 'Stopped\\.'}\\n\\nOpen in Roomote:`,
+          `^${label === 'Failed' ? 'Task failed\\.' : 'Stopped\\.'}\\n\\nOpen task:`,
         ),
       );
       expect(edit.text).not.toContain('Stopped because of an error.');
