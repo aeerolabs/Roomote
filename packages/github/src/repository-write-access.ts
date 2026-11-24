@@ -3,7 +3,7 @@ import pMap from 'p-map';
 
 import { createGitHubToken } from '@roomote/auth';
 import { PRODUCT_NAME } from '@roomote/types';
-import { db, desc, eq, githubUserMappings } from '@roomote/db/server';
+import { db, desc, eq, githubUserMappings, tasks } from '@roomote/db/server';
 
 /**
  * Every task pushes and opens pull requests as the GitHub App, which can
@@ -18,7 +18,8 @@ export type GitHubWriteAccessDenialReason =
   | 'lookup_failed';
 
 export type GitHubWriteAccess =
-  | { allowed: true; githubLogin: string }
+  /** githubLogin is null for an ownerless built-in automation. */
+  | { allowed: true; githubLogin: string | null }
   | {
       allowed: false;
       reason: GitHubWriteAccessDenialReason;
@@ -158,15 +159,31 @@ async function lookUpWriteAccess(
 }
 
 /**
+ * Built-in automations with no owner (conflict resolution, CI triage, the
+ * issue fixer) work on the deployment's own pull requests and keep the write
+ * access they always had. Tighten this once every automation has an owner.
+ */
+async function isOwnerlessAutomationTask(taskId: string): Promise<boolean> {
+  const task = await db.query.tasks.findFirst({
+    where: eq(tasks.id, taskId),
+    columns: { initiatorKind: true },
+  });
+  return task?.initiatorKind === 'automation';
+}
+
+/**
  * Whether the person a task acts for may push to and open pull requests in
  * each repository, keyed by repository full name. Looks up their linked
  * GitHub login once, then asks GitHub for their permission per repository.
  */
 export async function checkGitHubWriteAccess({
   userId,
+  taskId,
   repositories,
 }: {
   userId: string | null | undefined;
+  /** The task the check is for, so an ownerless automation is recognized. */
+  taskId?: string | null;
   repositories: GitHubWriteAccessRepository[];
 }): Promise<Map<string, GitHubWriteAccess>> {
   const unique = [
@@ -174,6 +191,13 @@ export async function checkGitHubWriteAccess({
   ];
   const result = new Map<string, GitHubWriteAccess>();
   if (unique.length === 0) {
+    return result;
+  }
+
+  if (!userId && taskId && (await isOwnerlessAutomationTask(taskId))) {
+    for (const repository of unique) {
+      result.set(repository.fullName, { allowed: true, githubLogin: null });
+    }
     return result;
   }
 
@@ -203,13 +227,16 @@ export async function checkGitHubWriteAccess({
 
 export async function checkGitHubRepositoryWriteAccess({
   userId,
+  taskId,
   repository,
 }: {
   userId: string | null | undefined;
+  taskId?: string | null;
   repository: GitHubWriteAccessRepository;
 }): Promise<GitHubWriteAccess> {
   const result = await checkGitHubWriteAccess({
     userId,
+    taskId,
     repositories: [repository],
   });
   return result.get(repository.fullName)!;

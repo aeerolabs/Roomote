@@ -198,7 +198,7 @@ export async function resolveRepositoryRow({
  * access there themselves.
  */
 export async function getGitHubWriteDenialForTaskRun(
-  taskRun: Pick<TaskRun, 'actingUserId'>,
+  taskRun: Pick<TaskRun, 'actingUserId' | 'taskId'>,
   repository: Pick<RepositoryRow, 'fullName' | 'installationId'>,
 ): Promise<string | null> {
   if (!repository.installationId) {
@@ -206,6 +206,7 @@ export async function getGitHubWriteDenialForTaskRun(
   }
   const access = await checkGitHubRepositoryWriteAccess({
     userId: taskRun.actingUserId,
+    taskId: taskRun.taskId,
     repository: {
       fullName: repository.fullName,
       installationId: repository.installationId,

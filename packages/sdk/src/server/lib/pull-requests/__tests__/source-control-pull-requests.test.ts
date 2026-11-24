@@ -1304,6 +1304,7 @@ describe('optional targetBranch', () => {
     });
     expect(mockCheckGitHubRepositoryWriteAccess).toHaveBeenCalledWith({
       userId: 'user-123',
+      taskId: 'task-123',
       repository: { fullName: 'acme/web', installationId: 555 },
     });
     expect(octokit.rest.pulls.create).not.toHaveBeenCalled();

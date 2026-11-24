@@ -1,9 +1,14 @@
-const { mockCreateGitHubToken, mockFindMapping, mockGetPermission } =
-  vi.hoisted(() => ({
-    mockCreateGitHubToken: vi.fn(),
-    mockFindMapping: vi.fn(),
-    mockGetPermission: vi.fn(),
-  }));
+const {
+  mockCreateGitHubToken,
+  mockFindMapping,
+  mockFindTask,
+  mockGetPermission,
+} = vi.hoisted(() => ({
+  mockCreateGitHubToken: vi.fn(),
+  mockFindMapping: vi.fn(),
+  mockFindTask: vi.fn(),
+  mockGetPermission: vi.fn(),
+}));
 
 vi.mock('@octokit/rest', () => ({
   Octokit: vi.fn(function (this: Record<string, unknown>) {
@@ -19,7 +24,10 @@ vi.mock('@roomote/auth', () => ({
 
 vi.mock('@roomote/db/server', () => ({
   db: {
-    query: { githubUserMappings: { findFirst: mockFindMapping } },
+    query: {
+      githubUserMappings: { findFirst: mockFindMapping },
+      tasks: { findFirst: mockFindTask },
+    },
   },
   desc: vi.fn((value: unknown) => ({ type: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ type: 'eq', left, right })),
@@ -27,6 +35,7 @@ vi.mock('@roomote/db/server', () => ({
     userId: 'githubUserMappings.userId',
     updatedAt: 'githubUserMappings.updatedAt',
   },
+  tasks: { id: 'tasks.id' },
 }));
 
 import {
@@ -110,6 +119,31 @@ describe('checkGitHubRepositoryWriteAccess', () => {
       checkGitHubRepositoryWriteAccess({ userId: null, repository }),
     ).resolves.toMatchObject({ allowed: false, reason: 'no_acting_user' });
     expect(mockFindMapping).not.toHaveBeenCalled();
+  });
+
+  it('keeps write access for a built-in automation with no owner', async () => {
+    mockFindTask.mockResolvedValue({ initiatorKind: 'automation' });
+
+    await expect(
+      checkGitHubRepositoryWriteAccess({
+        userId: null,
+        taskId: 'task-1',
+        repository,
+      }),
+    ).resolves.toEqual({ allowed: true, githubLogin: null });
+    expect(mockGetPermission).not.toHaveBeenCalled();
+  });
+
+  it('denies a person-started task whose sender has no account', async () => {
+    mockFindTask.mockResolvedValue({ initiatorKind: 'user' });
+
+    await expect(
+      checkGitHubRepositoryWriteAccess({
+        userId: null,
+        taskId: 'task-1',
+        repository,
+      }),
+    ).resolves.toMatchObject({ allowed: false, reason: 'no_acting_user' });
   });
 
   it('fails closed on a GitHub error and asks again next time', async () => {
