@@ -38,6 +38,8 @@ import {
   isNewAuthUserEmailAllowed,
   isSignInAllowedByAccessPolicy,
 } from './access-policy';
+import { saveEntraRolesForUser } from './entra-roles';
+import { decodeJwtPayload } from './jwt-payload';
 import {
   extractInviteTokenFromRequest,
   runWithInviteContext,
@@ -231,22 +233,6 @@ async function isRoomoteAuthSessionAllowed(userId: unknown) {
   });
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  const [, payload] = token.split('.');
-
-  if (!payload) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(
-      Buffer.from(payload, 'base64url').toString('utf8'),
-    ) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -266,6 +252,10 @@ async function syncMicrosoftAuthUserMapping(account: unknown) {
   if (!authAccountId || !userId || !accountId || !idToken) {
     return;
   }
+
+  // Better Auth stores the fresh ID token on every Microsoft sign-in, so the
+  // Entra app roles that gate task secrets and tools refresh here too.
+  await saveEntraRolesForUser(userId, idToken);
 
   const claims = decodeJwtPayload(
     idToken,

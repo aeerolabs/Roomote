@@ -35,6 +35,7 @@ import {
   seedDeploymentAccessPolicyIfNeeded,
 } from './access-policy';
 import { InviteRedemptionFailedError, redeemInvite } from './invites';
+import { getEntraRolesMetadataForNewUser } from './entra-roles';
 
 const DEFAULT_DEPLOYMENT_ID = 'default';
 
@@ -150,6 +151,9 @@ async function ensureDeploymentIdentity({
   let role: UserRole;
 
   if (!existingUser) {
+    // The Microsoft sign-in hook ran before this row existed, so the Entra
+    // roles from that sign-in are carried in here.
+    const initialMetadata = await getEntraRolesMetadataForNewUser(userId);
     // Invite redemption is bound to the user-row insert in one transaction:
     // a use is consumed exactly once per admitted user (parallel first-load
     // requests conflict on the insert and skip redemption), and a failed
@@ -191,7 +195,7 @@ async function ensureDeploymentIdentity({
           email,
           imageUrl: imageUrl ?? '',
           entity: userEntity,
-          metadata: {},
+          metadata: initialMetadata,
           role: insertRole,
           // New Members link their personal accounts before using Roomote.
           onboardingCompletedAt: insertRole === 'member' ? null : now,
