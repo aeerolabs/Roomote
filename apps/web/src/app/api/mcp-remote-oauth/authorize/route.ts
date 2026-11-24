@@ -89,8 +89,8 @@ function consentResponse(options: {
         display: flex;
         overflow: hidden;
         border-radius: 24px;
-        background: #d9f52b;
-        background: oklch(0.9 0.18 120);
+        background: #f2c9c6;
+        background: oklch(0.86 0.07 22);
       }
 
       .column {
@@ -198,7 +198,7 @@ function consentResponse(options: {
         transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
       }
 
-      button:hover { background: rgba(0, 0, 0, 0.8); color: #d9f52b; }
+      button:hover { background: rgba(0, 0, 0, 0.8); color: #f2c9c6; }
       button:active { opacity: 0.8; }
       button:focus-visible { outline: 2px solid #000; outline-offset: 3px; }
 
