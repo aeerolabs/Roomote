@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 
-const { framedSurfaceMock, roomoteWordmarkMock } = vi.hoisted(() => ({
+const { framedSurfaceMock } = vi.hoisted(() => ({
   framedSurfaceMock: vi.fn(
     ({
       children,
@@ -27,14 +27,10 @@ const { framedSurfaceMock, roomoteWordmarkMock } = vi.hoisted(() => ({
       </div>
     ),
   ),
-  roomoteWordmarkMock: vi.fn(({ className }: { className?: string }) => (
-    <div data-wordmark-class-name={className}>RoomoteWordmark</div>
-  )),
 }));
 
 vi.mock('@/components/layout', () => ({
   FramedSurface: framedSurfaceMock,
-  RoomoteWordmark: roomoteWordmarkMock,
 }));
 
 import Layout from './layout';
@@ -42,7 +38,6 @@ import Layout from './layout';
 describe('Unauthenticated layout', () => {
   beforeEach(() => {
     framedSurfaceMock.mockClear();
-    roomoteWordmarkMock.mockClear();
   });
 
   it('renders the logged-out shell in the setup-style centered frame', () => {
@@ -52,7 +47,7 @@ describe('Unauthenticated layout', () => {
       </Layout>,
     );
 
-    expect(screen.getByText('RoomoteWordmark')).toBeInTheDocument();
+    expect(screen.getByText('Kojo The Coder')).toBeInTheDocument();
     expect(screen.getByText('child')).toBeInTheDocument();
 
     expect(framedSurfaceMock).toHaveBeenCalledWith(
@@ -71,7 +66,8 @@ describe('Unauthenticated layout', () => {
       }),
       undefined,
     );
-    const contentColumn = screen.getByText('RoomoteWordmark').parentElement;
+    const contentColumn =
+      screen.getByText('Kojo The Coder').parentElement?.parentElement;
     expect(contentColumn).toHaveClass(
       'flex',
       'w-full',
@@ -88,9 +84,8 @@ describe('Unauthenticated layout', () => {
       'border-l-2',
       'border-dotted',
     );
-    expect(screen.getByText('RoomoteWordmark')).toHaveAttribute(
-      'data-wordmark-class-name',
-      expect.stringContaining('mb-8'),
+    expect(screen.getByText('Kojo The Coder').parentElement).toHaveClass(
+      'mb-8',
     );
   });
 });

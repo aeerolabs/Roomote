@@ -51,6 +51,7 @@ x-roomote-env: &roomote-env
   R_PUBLIC_URL: ${R_PUBLIC_URL:-}
   R_ALLOWED_EMAILS: ${R_ALLOWED_EMAILS:-}
   R_ROLE_ACCESS_POLICY: ${R_ROLE_ACCESS_POLICY:-}
+  R_SIGN_IN_PROVIDERS: ${R_SIGN_IN_PROVIDERS:-}
   R_MODEL: ${R_MODEL:-}
   # Decision model. Unset, a deployment uses Jev when a TypeSafe key is
   # configured and otherwise none. R_JUDGMENT_UPSTREAM_URL points at any

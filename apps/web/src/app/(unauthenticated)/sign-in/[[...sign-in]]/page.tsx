@@ -8,6 +8,7 @@ import {
 } from '@/lib/server/access-policy';
 import { getSignedInAuthContext } from '@/lib/server/auth-context';
 import { resolveAuthProviderConfig } from '@/lib/server/auth-provider-config';
+import { getAllowedSignInMethods } from '@/lib/server/sign-in-providers';
 import { isSelfServicePasswordResetAvailable } from '@/lib/server/self-service-password-reset';
 import { getSafeSignInRedirectPath } from '@/lib/auth-redirect';
 import { PAGE_METADATA } from '@/lib/metadata';
@@ -17,7 +18,10 @@ import { SignInPageClient } from './page.client';
 
 async function getConfiguredAuthProviders(): Promise<AuthProvider[]> {
   const config = await resolveAuthProviderConfig();
-  return config.enabledProviders;
+  const allowed = getAllowedSignInMethods();
+  return allowed
+    ? config.enabledProviders.filter((provider) => allowed.has(provider))
+    : config.enabledProviders;
 }
 
 function hasInvitedParam(invited: string | string[] | undefined): boolean {
@@ -68,6 +72,7 @@ export default async function Page(props: {
   return (
     <SignInPageClient
       enabledProviders={enabledProviders}
+      emailSignInAllowed={getAllowedSignInMethods()?.has('email') ?? true}
       canSignUp={canSignUp}
       inviteRole={invite?.role ?? null}
       inviteInvalid={hasInvitedParam(searchParams.invited) && invite === null}

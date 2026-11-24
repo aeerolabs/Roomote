@@ -413,6 +413,12 @@ const serverSchema = {
   // JSON policy that gates deployment secrets, MCP servers and per-task AWS
   // credentials on the acting person's Microsoft Entra app roles. Unset keeps
   // every task on today's behavior. See role-access-policy.ts for the shape.
+  /**
+   * Comma-separated sign-in methods people may use: microsoft, slack, email.
+   * Unset allows every configured method. Linking an account to someone
+   * already signed in is not a sign-in and is never blocked.
+   */
+  R_SIGN_IN_PROVIDERS: z.string().optional(),
   R_ROLE_ACCESS_POLICY: z
     .string()
     .optional()
@@ -831,6 +837,7 @@ const OPTIONAL_NON_EMPTY_KEYS = new Set([
   'R_MODEL_ENV_KEYS',
   'R_ALLOWED_EMAILS',
   'R_ROLE_ACCESS_POLICY',
+  'R_SIGN_IN_PROVIDERS',
   'R_LICENSE_KEY',
   'R_LICENSE_CLOUD_BASE_URL',
   'R_GITHUB_APP_SLUG',

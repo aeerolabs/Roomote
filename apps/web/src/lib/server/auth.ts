@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { betterAuth } from 'better-auth';
 import { nextCookies } from 'better-auth/next-js';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { genericOAuth, slack } from 'better-auth/plugins';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { normalizeAdoLinkedAccountKey } from '@roomote/ado';
@@ -27,6 +28,7 @@ import * as dbSchema from '@roomote/db/server';
 
 import { Env, getBetterAuthSecret, isEmailChannelEnabled } from './env';
 import { getBetterAuthBaseUrlConfig } from './better-auth-base-url';
+import { isAuthRequestAllowedBySignInPolicy } from './sign-in-providers';
 import { withCanonicalForwardedProto } from './canonical-forwarded-proto';
 import { bootstrapWebRuntimeEnv } from './bootstrap-runtime-env';
 import {
@@ -1159,6 +1161,19 @@ async function createAuth(authProviderConfig: ResolvedAuthProviderConfig) {
           },
         }
       : {}),
+    // R_SIGN_IN_PROVIDERS can limit how people sign in (for example to
+    // Microsoft only, so Entra app roles always reach the account). Linking
+    // a provider to someone already signed in stays available.
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (!isAuthRequestAllowedBySignInPolicy(ctx.path, ctx.body)) {
+          throw new APIError('FORBIDDEN', {
+            message:
+              'This sign-in method is turned off here. Use one of the options on the sign-in page.',
+          });
+        }
+      }),
+    },
     databaseHooks: {
       account: {
         create: {
