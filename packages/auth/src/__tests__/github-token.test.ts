@@ -248,6 +248,53 @@ describe('createGitHubToken', () => {
     });
   });
 
+  it('mints a read-only token limited to permissions the installation has', async () => {
+    mockFindInstallation.mockResolvedValue({
+      installationId: 999,
+      permissions: {
+        contents: 'write',
+        pull_requests: 'write',
+        workflows: 'write',
+        administration: 'write',
+      },
+    });
+
+    await createGitHubToken(
+      {
+        type: 'installationId',
+        installationId: 'inst-row-id',
+        repositoryIds: [7],
+        readOnly: true,
+      },
+      undefined,
+      { cache: true },
+    );
+    await createGitHubToken(
+      {
+        type: 'installationId',
+        installationId: 'inst-row-id',
+        repositoryIds: [7],
+      },
+      undefined,
+      { cache: true },
+    );
+
+    expect(mockCreateInstallationAccessToken).toHaveBeenNthCalledWith(1, {
+      installation_id: 999,
+      repository_ids: [7],
+      permissions: {
+        metadata: 'read',
+        contents: 'read',
+        pull_requests: 'read',
+      },
+    });
+    // A cached read-only token never stands in for a writable one.
+    expect(mockCreateInstallationAccessToken).toHaveBeenNthCalledWith(2, {
+      installation_id: 999,
+      repository_ids: [7],
+    });
+  });
+
   it('omits repository_ids when no repository ids are supplied', async () => {
     mockFindInstallation.mockResolvedValue({ installationId: 999 });
 

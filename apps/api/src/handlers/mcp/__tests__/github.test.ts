@@ -24,6 +24,7 @@ import { INTEGRATION_TOOL_FAST_CONVERSATION_HEADER } from '@roomote/types';
 import type { Variables } from '../../../types';
 
 const mocks = vi.hoisted(() => ({
+  writeAccess: vi.fn(),
   mint: vi.fn(),
   credentials: vi.fn(),
   upstream: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock('@roomote/auth', async (importOriginal) => ({
 }));
 vi.mock('../../long-lived-fetch', () => ({
   fetchWithLongLivedStreamDispatcher: mocks.upstream,
+}));
+vi.mock('@roomote/github', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@roomote/github')>()),
+  checkGitHubRepositoryWriteAccess: mocks.writeAccess,
 }));
 
 import { createGithubMcp } from '../github';
@@ -102,6 +107,9 @@ describe('GitHub MCP proxy', () => {
   });
 
   beforeEach(async () => {
+    mocks.writeAccess
+      .mockReset()
+      .mockResolvedValue({ allowed: true, githubLogin: 'member' });
     mocks.mint.mockReset().mockResolvedValue('scoped-test-token');
     mocks.credentials.mockReset().mockResolvedValue(appCredentials);
     mocks.upstream
@@ -283,6 +291,46 @@ describe('GitHub MCP proxy', () => {
         .delete(fastAgentConversations)
         .where(eq(fastAgentConversations.id, conversation!.id));
     }
+  });
+
+  it('refuses a member write to a repository they cannot write to on GitHub', async () => {
+    mocks.writeAccess.mockResolvedValue({
+      allowed: false,
+      reason: 'insufficient_permission',
+      message: `Roomote can read ${owner}/example but will not push or open pull requests there: your GitHub account reader does not have write access to it. Ask a maintainer of ${owner}/example for write access.`,
+    });
+
+    const response = await call('update_pull_request', args);
+
+    expect(response.status).toBe(403);
+    expect(await response.text()).toContain('Ask a maintainer');
+    expect(mocks.writeAccess).toHaveBeenCalledWith({
+      userId: actor.id,
+      repository: {
+        fullName: `${owner}/example`,
+        installationId: installation.id,
+      },
+    });
+    expect(mocks.mint).not.toHaveBeenCalled();
+    expect(mocks.upstream).not.toHaveBeenCalled();
+  });
+
+  it('keeps reads working, read-only, for a member without write access', async () => {
+    mocks.writeAccess.mockResolvedValue({
+      allowed: false,
+      reason: 'not_linked',
+      message: 'link your GitHub account',
+    });
+
+    const response = await call('get_file_contents', {
+      owner,
+      repo: 'example',
+      path: 'README.md',
+    });
+
+    expect(response.status).toBe(200);
+    const init = mocks.upstream.mock.calls[0]![1] as RequestInit;
+    expect(new Headers(init.headers).get('X-MCP-Readonly')).toBe('true');
   });
 
   it.each(['closed', 'open'])(

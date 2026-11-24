@@ -31,6 +31,7 @@ import {
   buildApiUrl,
   buildGitLabTokenHeader,
   formatResponseBody,
+  getGitHubWriteDenialForTaskRun,
   getPayloadRecord,
   resolveRepositoryRow,
   resolveSourceControlHostForRepositoryFromPayload,
@@ -191,6 +192,10 @@ export type SourceControlPullRequestWriteResult = {
  * write callers can map client-addressable failures to HTTP statuses the same
  * way the read and mutation surfaces do.
  */
+const PULL_REQUEST_CHANGE_ACTIONS = new Set<
+  SourceControlPullRequestWriteInput['action']
+>(['update_pull_request', 'close_pull_request', 'reopen_pull_request']);
+
 export class SourceControlWriteError extends Error {
   constructor(
     public readonly httpStatus: number,
@@ -367,6 +372,15 @@ export async function writeSourceControlPullRequestForTaskRun({
     repositoryFullName: input.repositoryFullName,
     host: payloadHost,
   });
+
+  // Changing a pull request itself needs the same write access as opening
+  // one. Comments and reviews stay open to everyone who can read.
+  if (provider === 'github' && PULL_REQUEST_CHANGE_ACTIONS.has(input.action)) {
+    const denial = await getGitHubWriteDenialForTaskRun(taskRun, repository);
+    if (denial) {
+      throw new SourceControlWriteError(403, denial);
+    }
+  }
 
   if (
     input.action === 'submit_pull_request_review' &&

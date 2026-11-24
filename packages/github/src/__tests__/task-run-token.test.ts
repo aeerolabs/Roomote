@@ -5,7 +5,11 @@ const {
   mockFindEnvironmentFirst,
   mockFindMappings,
   mockFindInstallation,
+  mockCheckGitHubWriteAccess,
+  mockFindActiveInstallations,
 } = vi.hoisted(() => ({
+  mockCheckGitHubWriteAccess: vi.fn(),
+  mockFindActiveInstallations: vi.fn(),
   mockFindInstallation: vi.fn(),
   mockCreateGitHubTokenWithMetadata: vi.fn(),
   mockFindMany: vi.fn(),
@@ -16,6 +20,10 @@ const {
 
 vi.mock('@roomote/auth', () => ({
   createGitHubTokenWithMetadata: mockCreateGitHubTokenWithMetadata,
+}));
+
+vi.mock('../repository-write-access', () => ({
+  checkGitHubWriteAccess: mockCheckGitHubWriteAccess,
 }));
 
 vi.mock('@roomote/db/server', () => ({
@@ -30,7 +38,10 @@ vi.mock('@roomote/db/server', () => ({
         findFirst: mockFindEnvironmentFirst,
       },
       environmentRepositoryMappings: { findMany: mockFindMappings },
-      githubInstallations: { findFirst: mockFindInstallation },
+      githubInstallations: {
+        findFirst: mockFindInstallation,
+        findMany: mockFindActiveInstallations,
+      },
     },
   },
   asc: vi.fn((value: unknown) => ({ type: 'asc', value })),
@@ -65,6 +76,7 @@ import type { TaskRun } from '@roomote/db/server';
 
 import {
   GitHubInstallationSpanError,
+  clearInstallationRepositoriesCacheForTesting,
   createTaskRunGitHubToken,
   createTaskRunWorkerGitHubTokenWithMetadata,
   withTaskRunGitHubTokenRetry,
@@ -73,6 +85,7 @@ import {
 function buildTaskRun(payload: TaskRun['payload']): TaskRun {
   return {
     id: 123,
+    taskId: 'task-1',
     payload,
   } as TaskRun;
 }
@@ -104,9 +117,34 @@ function buildEnvironmentConfig(repositories: string[]) {
   };
 }
 
+function allowWritesTo(repositories?: string[]) {
+  mockCheckGitHubWriteAccess.mockImplementation(
+    async ({
+      repositories: requested,
+    }: {
+      repositories: Array<{ fullName: string }>;
+    }) =>
+      new Map(
+        requested.map(({ fullName }) => [
+          fullName,
+          !repositories || repositories.includes(fullName)
+            ? { allowed: true, githubLogin: 'asker' }
+            : {
+                allowed: false,
+                reason: 'insufficient_permission',
+                message: 'no write access',
+              },
+        ]),
+      ),
+  );
+}
+
 describe('createTaskRunGitHubToken', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearInstallationRepositoriesCacheForTesting();
+    mockFindActiveInstallations.mockResolvedValue([]);
+    allowWritesTo();
     mockCreateGitHubTokenWithMetadata.mockResolvedValue({
       token: 'ghs_test_token',
       expiresAt: new Date('2030-01-01T01:00:00.000Z'),
@@ -1077,5 +1115,169 @@ describe('createTaskRunGitHubToken', () => {
 
     expect(operation).toHaveBeenCalledTimes(1);
     expect(mockCreateGitHubTokenWithMetadata).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('createTaskRunWorkerGitHubTokenWithMetadata write access', () => {
+  const selectedPayload = {
+    repo: '__all_repositories__',
+    selectedRepositories: ['acme/api', 'acme/web'],
+  } as TaskRun['payload'];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearInstallationRepositoriesCacheForTesting();
+    mockFindActiveInstallations.mockResolvedValue([{ id: 'install-acme' }]);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    mockFindMany.mockResolvedValue([
+      {
+        fullName: 'acme/api',
+        host: 'github.com',
+        installationId: 'install-acme',
+        githubRepoId: 11,
+      },
+      {
+        fullName: 'acme/web',
+        host: 'github.com',
+        installationId: 'install-acme',
+        githubRepoId: 12,
+      },
+    ]);
+    mockCreateGitHubTokenWithMetadata.mockImplementation(
+      async (options: { readOnly?: boolean }) => ({
+        token: options.readOnly ? 'ghs_read_only' : 'ghs_writable',
+        expiresAt: new Date('2030-01-01T01:00:00.000Z'),
+      }),
+    );
+  });
+
+  it('keeps the full token when the acting user can write to every repository', async () => {
+    allowWritesTo();
+
+    const result = await createTaskRunWorkerGitHubTokenWithMetadata({
+      ...buildTaskRun(selectedPayload),
+      actingUserId: 'user-1',
+    } as TaskRun);
+
+    expect(result).toEqual({
+      token: 'ghs_writable',
+      source: 'app',
+      expiresAt: new Date('2030-01-01T01:00:00.000Z'),
+    });
+    expect(mockCheckGitHubWriteAccess).toHaveBeenCalledWith({
+      userId: 'user-1',
+      taskId: 'task-1',
+      repositories: [
+        { fullName: 'acme/api', installationId: 'install-acme' },
+        { fullName: 'acme/web', installationId: 'install-acme' },
+      ],
+    });
+    expect(mockCreateGitHubTokenWithMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it('mints only read access when the acting user cannot write anywhere', async () => {
+    allowWritesTo([]);
+
+    const result = await createTaskRunWorkerGitHubTokenWithMetadata({
+      ...buildTaskRun(selectedPayload),
+      actingUserId: 'reader',
+    } as TaskRun);
+
+    expect(result.token).toBe('ghs_read_only');
+    expect(result.gitCredentials).toBeUndefined();
+    expect(mockCreateGitHubTokenWithMetadata).toHaveBeenCalledTimes(1);
+    expect(mockCreateGitHubTokenWithMetadata).toHaveBeenCalledWith({
+      type: 'installationId',
+      installationId: 'install-acme',
+      repositoryIds: [11, 12],
+      readOnly: true,
+    });
+  });
+
+  it('gives a writable git credential only for the repositories the user can write to', async () => {
+    allowWritesTo(['acme/web']);
+
+    const result = await createTaskRunWorkerGitHubTokenWithMetadata({
+      ...buildTaskRun(selectedPayload),
+      actingUserId: 'user-1',
+    } as TaskRun);
+
+    expect(result.token).toBe('ghs_read_only');
+    expect(result.gitCredentials).toEqual([
+      {
+        host: 'github.com',
+        repositoryFullName: 'acme/web',
+        username: 'x-access-token',
+        token: 'ghs_writable',
+      },
+    ]);
+    expect(mockCreateGitHubTokenWithMetadata).toHaveBeenLastCalledWith({
+      type: 'installationId',
+      installationId: 'install-acme',
+      repositoryIds: [12],
+    });
+  });
+
+  describe('an all-repositories task', () => {
+    const allRepositoriesRun = {
+      ...buildTaskRun({ repo: '__all_repositories__' } as TaskRun['payload']),
+      actingUserId: 'user-1',
+    } as TaskRun;
+
+    it('narrows to the connected repositories when the asker can write to all of them', async () => {
+      allowWritesTo();
+
+      const result =
+        await createTaskRunWorkerGitHubTokenWithMetadata(allRepositoriesRun);
+
+      expect(result.token).toBe('ghs_writable');
+      expect(result.gitCredentials).toBeUndefined();
+      expect(mockCreateGitHubTokenWithMetadata).toHaveBeenCalledExactlyOnceWith(
+        {
+          type: 'installationId',
+          installationId: 'install-acme',
+          repositoryIds: [11, 12],
+        },
+      );
+    });
+
+    it('stays read-only and gives writable credentials for the repositories the asker can write to', async () => {
+      allowWritesTo(['acme/web']);
+
+      const result =
+        await createTaskRunWorkerGitHubTokenWithMetadata(allRepositoriesRun);
+
+      expect(result.token).toBe('ghs_read_only');
+      expect(mockCreateGitHubTokenWithMetadata).toHaveBeenNthCalledWith(1, {
+        type: 'activeInstallation',
+        readOnly: true,
+      });
+      expect(mockCreateGitHubTokenWithMetadata).toHaveBeenNthCalledWith(2, {
+        type: 'installationId',
+        installationId: 'install-acme',
+        repositoryIds: [12],
+      });
+      expect(result.gitCredentials).toEqual([
+        {
+          host: 'github.com',
+          repositoryFullName: 'acme/web',
+          username: 'x-access-token',
+          token: 'ghs_writable',
+        },
+      ]);
+    });
+
+    it('is read-only everywhere when the asker can write to none', async () => {
+      allowWritesTo([]);
+
+      const result =
+        await createTaskRunWorkerGitHubTokenWithMetadata(allRepositoriesRun);
+
+      expect(result.token).toBe('ghs_read_only');
+      expect(result.gitCredentials).toBeUndefined();
+      expect(mockCreateGitHubTokenWithMetadata).toHaveBeenCalledExactlyOnceWith(
+        { type: 'activeInstallation', readOnly: true },
+      );
+    });
   });
 });

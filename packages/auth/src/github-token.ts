@@ -19,7 +19,10 @@ import {
 } from '@roomote/db/server';
 
 export const createGitHubTokenOptionsSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('activeInstallation') }),
+  z.object({
+    type: z.literal('activeInstallation'),
+    readOnly: z.boolean().optional(),
+  }),
   z.object({ type: z.literal('userId'), userId: z.string() }),
   z.object({
     type: z.literal('installationId'),
@@ -27,6 +30,9 @@ export const createGitHubTokenOptionsSchema = z.discriminatedUnion('type', [
     // GitHub repository ids to scope the token to. When omitted, the token
     // covers every repository in the installation.
     repositoryIds: z.array(z.number()).optional(),
+    // Downgrade every permission to read. Used when the person a task acts
+    // for may read a repository but not push to it.
+    readOnly: z.boolean().optional(),
   }),
 ]);
 
@@ -81,16 +87,55 @@ function getGitHubTokenCacheKey({
   credentials,
   installationId,
   repositoryIds,
+  readOnly,
 }: {
   credentials: GitHubAppCredentials;
   installationId: number;
   repositoryIds: number[];
+  readOnly: boolean;
 }): string {
   return [
     getCredentialFingerprint(credentials),
     String(installationId),
     repositoryIds.join(','),
+    ...(readOnly ? ['read-only'] : []),
   ].join(':');
+}
+
+/**
+ * Permissions a read-only task token may carry. Each one accepts `read`, so a
+ * request built from this list never asks GitHub for a level it cannot grant.
+ */
+const READ_ONLY_TOKEN_PERMISSIONS = [
+  'actions',
+  'checks',
+  'contents',
+  'deployments',
+  'discussions',
+  'issues',
+  'metadata',
+  'pull_requests',
+  'statuses',
+] as const;
+
+/**
+ * Asking for a permission the installation was never granted fails the mint,
+ * so keep only the ones it has, each at `read`.
+ */
+function buildReadOnlyTokenPermissions(
+  installationPermissions: unknown,
+): Record<string, 'read'> {
+  const granted =
+    installationPermissions && typeof installationPermissions === 'object'
+      ? (installationPermissions as Record<string, unknown>)
+      : {};
+  const permissions: Record<string, 'read'> = { metadata: 'read' };
+  for (const name of READ_ONLY_TOKEN_PERMISSIONS) {
+    if (typeof granted[name] === 'string') {
+      permissions[name] = 'read';
+    }
+  }
+  return permissions;
 }
 
 function getCachedGitHubToken(
@@ -181,11 +226,13 @@ function getRateLimitResetAt(error: unknown): string | null {
 async function mintGitHubToken({
   installationId,
   repositoryIds,
+  permissions,
   appCredentials,
   runtimeOptions,
 }: {
   installationId: number;
   repositoryIds: number[];
+  permissions?: Record<string, 'read'>;
   appCredentials: GitHubAppCredentials;
   runtimeOptions?: CreateGitHubTokenRuntimeOptions;
 }): Promise<GitHubTokenMetadata> {
@@ -200,6 +247,7 @@ async function mintGitHubToken({
     ).rest.apps.createInstallationAccessToken({
       installation_id: installationId,
       ...(repositoryIds.length > 0 ? { repository_ids: repositoryIds } : {}),
+      ...(permissions ? { permissions } : {}),
     });
     const parsedExpiresAt = expiresAtValue ? new Date(expiresAtValue) : null;
     const expiresAt =
@@ -213,6 +261,7 @@ async function mintGitHubToken({
         outcome: 'success',
         installationId,
         repositoryCount: repositoryIds.length,
+        readOnly: Boolean(permissions),
         expiresAt: expiresAt?.toISOString() ?? null,
         durationMs: Date.now() - startedAt,
       }),
@@ -313,10 +362,12 @@ export async function createGitHubTokenWithMetadata(
   const repositoryIds = normalizeRepositoryIds(
     options.type === 'installationId' ? options.repositoryIds : undefined,
   );
+  const readOnly = 'readOnly' in options && options.readOnly === true;
   const cacheKey = getGitHubTokenCacheKey({
     credentials: appCredentials,
     installationId: installation.installationId,
     repositoryIds,
+    readOnly,
   });
   const cacheEnabled = runtimeOptions?.cache === true;
   const forceRefresh = runtimeOptions?.forceRefresh === true;
@@ -344,6 +395,9 @@ export async function createGitHubTokenWithMetadata(
   const mint = mintGitHubToken({
     installationId: installation.installationId,
     repositoryIds,
+    ...(readOnly
+      ? { permissions: buildReadOnlyTokenPermissions(installation.permissions) }
+      : {}),
     appCredentials,
     runtimeOptions,
   })

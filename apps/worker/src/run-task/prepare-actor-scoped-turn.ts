@@ -1,6 +1,8 @@
 import { sdk } from '@roomote/sdk/client';
 
+import { runUnlessCredentialWriteBarrier } from '../lib';
 import { syncRuntimeGitAuthor } from '../lib/sync-runtime-git-author';
+import { refreshGitHubToken } from './polling/github-token-refresh';
 import type { RefreshActorScopedMcpResult } from './actor-scoped-mcp-refresh';
 import type { ActorMismatchSkipNotifier } from './actor-mismatch-notice';
 
@@ -177,6 +179,17 @@ export async function syncActorScopedTurnState({
   // `updated`/`unchanged` both mean the server actor IS the sender; the
   // turn runs as that single identity.
   const effectiveUserId = outcome.actingUserId ?? null;
+
+  if (outcome.result === 'updated') {
+    // What the task may push follows the person it now acts for, so re-mint
+    // the source-control token for them instead of keeping the last actor's.
+    await runUnlessCredentialWriteBarrier(() =>
+      refreshGitHubToken({
+        runId,
+        logger: { info: () => undefined, error: logger.error },
+      }),
+    );
+  }
 
   if (outcome.result === 'updated' || hasPendingGitAuthorSync?.()) {
     try {
