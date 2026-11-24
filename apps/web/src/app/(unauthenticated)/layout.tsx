@@ -1,6 +1,6 @@
 'use client';
 
-import { FramedSurface, RoomoteWordmark } from '@/components/layout';
+import { FramedSurface } from '@/components/layout';
 
 export default function AuthenticatedLayout({
   children,
@@ -20,7 +20,19 @@ export default function AuthenticatedLayout({
       <div className="relative flex w-full max-w-3xl flex-col md:min-h-full">
         <div className="pointer-events-none absolute inset-y-0 left-0 hidden border-black border-l-2 border-dotted md:block" />
         <div className="flex w-full flex-col px-4 py-6 space-y-4 md:my-auto md:px-0 md:py-10 md:pl-6">
-          <RoomoteWordmark className="mb-8 h-14 w-fit shrink-0" />
+          <div className="mb-8 flex w-fit shrink-0 items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static mark on the sign-in screen */}
+            <img
+              src="/kojo-the-coder.png"
+              alt=""
+              width={56}
+              height={56}
+              className="size-14 rounded-full border-2 border-black bg-white object-cover"
+            />
+            <span className="text-3xl font-bold tracking-tighter">
+              Kojo The Coder
+            </span>
+          </div>
           {children}
         </div>
       </div>

@@ -12,6 +12,7 @@ export function SignInPageClient({
   inviteInvalid = false,
   accountLinkHelpText = null,
   passwordResetAvailable = false,
+  emailSignInAllowed = true,
 }: {
   enabledProviders: AuthProvider[];
   canSignUp: boolean;
@@ -19,6 +20,7 @@ export function SignInPageClient({
   inviteInvalid?: boolean;
   accountLinkHelpText?: string | null;
   passwordResetAvailable?: boolean;
+  emailSignInAllowed?: boolean;
 }) {
   useSetAuthState();
 
@@ -29,6 +31,7 @@ export function SignInPageClient({
       inviteRole={inviteRole}
       accountLinkHelpText={accountLinkHelpText}
       passwordResetAvailable={passwordResetAvailable}
+      emailSignInAllowed={emailSignInAllowed}
       noticeMessage={
         inviteInvalid
           ? 'This invitation is no longer valid. You can still sign in to an existing account.'

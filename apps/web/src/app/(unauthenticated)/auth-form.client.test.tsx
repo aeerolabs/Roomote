@@ -64,7 +64,7 @@ describe('AuthForm', () => {
     render(<AuthForm />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Microsoft Teams' }),
+      screen.getByRole('button', { name: 'Continue with Microsoft' }),
     );
 
     await waitFor(() => {
@@ -81,7 +81,7 @@ describe('AuthForm', () => {
     render(<AuthForm />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Microsoft Teams' }),
+      screen.getByRole('button', { name: 'Continue with Microsoft' }),
     );
 
     await waitFor(() => {
@@ -98,7 +98,7 @@ describe('AuthForm', () => {
     render(<AuthForm />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Microsoft Teams' }),
+      screen.getByRole('button', { name: 'Continue with Microsoft' }),
     );
 
     await waitFor(() => {
@@ -109,13 +109,13 @@ describe('AuthForm', () => {
     });
   });
 
-  it('starts Microsoft Teams sign-in through generic OAuth with the requested redirect path', async () => {
+  it('starts Microsoft sign-in through generic OAuth with the requested redirect path', async () => {
     searchParams = new URLSearchParams('redirect_url=/settings');
 
     render(<AuthForm />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Microsoft Teams' }),
+      screen.getByRole('button', { name: 'Continue with Microsoft' }),
     );
 
     await waitFor(() => {
@@ -192,7 +192,7 @@ describe('AuthForm', () => {
       screen.queryByRole('button', { name: 'Continue with Slack' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Continue with Microsoft Teams' }),
+      screen.queryByRole('button', { name: 'Continue with Microsoft' }),
     ).not.toBeInTheDocument();
   });
 
@@ -206,7 +206,7 @@ describe('AuthForm', () => {
       screen.queryByRole('button', { name: 'Continue with Telegram' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Continue with Microsoft Teams' }),
+      screen.queryByRole('button', { name: 'Continue with Microsoft' }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', {

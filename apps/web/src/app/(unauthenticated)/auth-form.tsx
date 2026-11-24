@@ -30,7 +30,9 @@ export type AuthProvider = SetupAuthProviderId;
 
 const SOCIAL_PROVIDERS = SETUP_AUTH_PROVIDER_CATALOG.map((provider) => ({
   id: provider.id,
-  label: provider.label,
+  // People sign in with their Microsoft account; Teams is only one of the
+  // places they can talk to the agent.
+  label: provider.id === 'microsoft' ? 'Microsoft' : provider.label,
   icon: provider.id,
 }));
 
@@ -40,7 +42,7 @@ function AuthProviderIcon({ provider }: { provider: AuthProvider }) {
   }
 
   if (provider === 'microsoft') {
-    return <BrandIcon icon="teams" name="" className="size-4" />;
+    return <BrandIcon icon="microsoft" name="" className="size-4" />;
   }
 
   return <BrandIcon icon={provider} name="" className="size-4" />;
@@ -61,6 +63,7 @@ export function AuthForm({
   noticeMessage = null,
   accountLinkHelpText = null,
   passwordResetAvailable = false,
+  emailSignInAllowed = true,
 }: {
   enabledProviders?: AuthProvider[];
   /**
@@ -81,6 +84,8 @@ export function AuthForm({
   noticeMessage?: string | null;
   accountLinkHelpText?: string | null;
   passwordResetAvailable?: boolean;
+  /** Whether email and password sign-in is offered at all. */
+  emailSignInAllowed?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -101,7 +106,8 @@ export function AuthForm({
   const [isEmailAuthVisible, setIsEmailAuthVisible] = useState(false);
   const [submittingProvider, setSubmittingProvider] =
     useState<AuthProvider | null>(null);
-  const showEmailAuth = !hasVisibleProviders || isEmailAuthVisible;
+  const showEmailAuth =
+    emailSignInAllowed && (!hasVisibleProviders || isEmailAuthVisible);
 
   const handleSocialSignIn = async (provider: AuthProvider) => {
     setErrorMessage(null);
@@ -194,17 +200,19 @@ export function AuthForm({
                 );
               })}
 
-              <Button
-                className={cn('w-full')}
-                onClick={() => setIsEmailAuthVisible(true)}
-                type="button"
-              >
-                <Mail />
-                <span className="grow text-left font-medium">
-                  Continue with email
-                </span>
-                <ArrowRight />
-              </Button>
+              {emailSignInAllowed ? (
+                <Button
+                  className={cn('w-full')}
+                  onClick={() => setIsEmailAuthVisible(true)}
+                  type="button"
+                >
+                  <Mail />
+                  <span className="grow text-left font-medium">
+                    Continue with email
+                  </span>
+                  <ArrowRight />
+                </Button>
+              ) : null}
             </div>
           ) : null}
 
