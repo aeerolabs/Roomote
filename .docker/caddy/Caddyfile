@@ -14,6 +14,13 @@
 # - Preview subdomains: the local preview proxy keeps its own port (18081).
 {
 	auto_https off
+
+	# ngrok terminates TLS and reaches Caddy over the Docker host network, so
+	# Caddy must trust its X-Forwarded-Proto for the web app to build https
+	# OAuth callback URLs (Microsoft Entra rejects http redirect URIs).
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 :18080 {
