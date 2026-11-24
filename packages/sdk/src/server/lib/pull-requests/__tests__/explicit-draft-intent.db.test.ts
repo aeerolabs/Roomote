@@ -32,6 +32,11 @@ vi.mock('@roomote/auth', () => ({
 }));
 vi.mock('@roomote/github', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@roomote/github')>()),
+  // Write access is covered by the source-control unit tests.
+  checkGitHubRepositoryWriteAccess: async () => ({
+    allowed: true,
+    githubLogin: 'writer',
+  }),
   getOctokit: () => ({ rest: { pulls: protocol }, graphql: protocol.graphql }),
 }));
 vi.mock('../pull-request-draft-intent', async (importOriginal) => {

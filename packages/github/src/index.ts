@@ -3,6 +3,7 @@ export * from './app-slug';
 export * from './commit-timestamps';
 export * from './is-repo-skipped';
 export * from './mention-settings';
+export * from './repository-write-access';
 export * from './resolve-app-slug';
 export * from './resolve-mention-settings';
 

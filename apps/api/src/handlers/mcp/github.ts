@@ -8,6 +8,7 @@ import {
   resolveRuntimeGitHubAppCredentials,
   type GitHubAppCredentials,
 } from '@roomote/auth';
+import { checkGitHubRepositoryWriteAccess } from '@roomote/github';
 import { Hono } from 'hono';
 import { isUserToken } from '@roomote/types';
 import {
@@ -234,6 +235,36 @@ function mintInstallationToken(
   );
 }
 
+const GITHUB_WRITE_TOOL_PREFIX =
+  /^(?:add|assign|close|create|delete|dismiss|enable|fork|merge|push|remove|reopen|request|resolve|submit|update)_/;
+
+/** Names a refused write in words before GitHub's read-only mode would. */
+function isLikelyGitHubWriteTool(name: string): boolean {
+  return writeToolNames.includes(name) || GITHUB_WRITE_TOOL_PREFIX.test(name);
+}
+
+/**
+ * Why a member may not write through this call, or null when they may. A call
+ * about a repository the deployment never connected needs no check: its token
+ * cannot reach that repository at all.
+ */
+async function getMemberWriteDenial(
+  userId: string,
+  target: typeof repositories.$inferSelect | null,
+): Promise<string | null> {
+  if (!target?.installationId) {
+    return null;
+  }
+  const access = await checkGitHubRepositoryWriteAccess({
+    userId,
+    repository: {
+      fullName: target.fullName,
+      installationId: target.installationId,
+    },
+  });
+  return access.allowed ? null : access.message;
+}
+
 function buildRouterGitHubHeaders(readonly: boolean): Record<string, string> {
   const constraints = getRouterMcpUpstreamConstraints(ROUTER_GITHUB_SERVER_ID);
   const headers: Record<string, string> = {};
@@ -320,19 +351,34 @@ export function createGithubMcp(options?: {
         isCall && !picked.connectedTarget
           ? { maxResponseBodyBytes: 2 * 1024 * 1024, timeoutMs: 15_000 }
           : {};
+      // Checked before minting so a refused write never costs a token.
+      const writeDenial =
+        isMember && isCall
+          ? await getMemberWriteDenial(userId!, picked.connectedTarget)
+          : null;
+      if (writeDenial && name && isLikelyGitHubWriteTool(name)) {
+        throw new McpProxyError(403, writeDenial);
+      }
       const authHeader = await mintInstallationToken(picked);
 
       if (isMember) {
         // A signed-in member gets what a coding task gets through `gh`: any
         // GitHub tool, under a token that reaches only the repositories the
-        // deployment connected. GitHub and the App's permissions are the
-        // boundary. The Session transcript already records every call.
+        // deployment connected. The App can write to all of them, so a call
+        // about a connected repository writes only when the member can write
+        // there on GitHub themselves, and otherwise runs read-only. The
+        // Session transcript already records every call.
         return {
           authHeader,
           ...responseBounds,
           allowedToolNames: null,
-          disabledToolNames: unsupportedGistToolNames,
-          extraHeaders: { 'X-MCP-Readonly': 'false', 'X-MCP-Toolsets': 'all' },
+          disabledToolNames: writeDenial
+            ? [...unsupportedGistToolNames, ...writeToolNames]
+            : unsupportedGistToolNames,
+          extraHeaders: {
+            'X-MCP-Readonly': String(Boolean(writeDenial)),
+            'X-MCP-Toolsets': 'all',
+          },
         };
       }
 
@@ -424,6 +470,13 @@ async function handleEnablePullRequestAutoMerge(
         403,
         'Active connected GitHub repository required',
       );
+    }
+    const writeDenial = await getMemberWriteDenial(
+      actor.id,
+      picked.connectedTarget,
+    );
+    if (writeDenial) {
+      throw new McpProxyError(403, writeDenial);
     }
     const token = await mintInstallationToken(picked);
     const pullNumber =

@@ -77,6 +77,7 @@ import {
   buildAdoBasicAuthHeader,
   buildApiUrl,
   buildGitLabTokenHeader,
+  getGitHubWriteDenialForTaskRun,
   getPayloadRecord,
   isDraftTitle,
   isGitLabDraft,
@@ -87,6 +88,10 @@ import {
   type FetchImpl,
   type RepositoryRow,
 } from './source-control-pull-request-shared';
+import {
+  resolveTaskGitHubCoAuthorTrailers,
+  withCoAuthorTrailers,
+} from './github-co-authors';
 import { notifyFastAgentParentOnPullRequestOpened } from '../task-runs/notify-fast-agent-parent-on-pull-request-opened';
 
 const ADO_API_VERSION = '7.1';
@@ -346,6 +351,13 @@ export async function createOrUpdateSourceControlPullRequestForTaskRun({
     host: payloadHost,
   });
 
+  if (provider === 'github') {
+    const denial = await getGitHubWriteDenialForTaskRun(taskRun, repository);
+    if (denial) {
+      throw new SourceControlMutationError(403, denial);
+    }
+  }
+
   const prAction = await resolveEffectivePrAction(taskRun);
   const createDraft = prAction !== 'create';
 
@@ -500,12 +512,23 @@ export async function createOrUpdateSourceControlPullRequestForTaskRun({
     githubAppSlug: configuredGitHubAppSlug,
     roomoteMentionEnabled,
   });
+  const bodyWithAttribution = attributionLine
+    ? prependCanonicalPrAttribution(input.body, attributionLine)
+    : input.body;
+  // Trailers in the commits credit everyone on merge and rebase, and on a
+  // squash built from commit messages. These cover a squash whose message is
+  // the pull request description.
+  const coAuthorTrailers =
+    provider === 'github'
+      ? await resolveTaskGitHubCoAuthorTrailers(taskRun)
+      : [];
   const inputWithNormalizedAttribution: SourceControlPullRequestMutationInput =
     {
       ...input,
-      body: attributionLine
-        ? prependCanonicalPrAttribution(input.body, attributionLine)
-        : input.body,
+      body:
+        coAuthorTrailers.length > 0
+          ? withCoAuthorTrailers(bodyWithAttribution, coAuthorTrailers)
+          : bodyWithAttribution,
     };
 
   // PR attribution is provenance. Assignment continues to follow the live
