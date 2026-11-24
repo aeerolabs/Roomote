@@ -487,7 +487,7 @@ describe('sendUserDirectMessageBestEffort', () => {
     mockPostSlackThreadWithFooter.mockResolvedValue('1720000000.000200');
     mockBuildFooterText.mockImplementation(
       ({ provider, sessionId }) =>
-        `Reply anytime · [Open in Roomote](https://roomote.test/sessions/${sessionId}?provider=${provider})`,
+        `Reply anytime · [Open conversation](https://roomote.test/sessions/${sessionId}?provider=${provider})`,
     );
     mockBuildSessionUrl.mockImplementation(
       (provider, sessionId) =>

@@ -235,7 +235,7 @@ describe('chat message copy builders', () => {
       buildThreadReplyFooterText({
         taskUrl: 'https://roomote.dev/task/123',
       }),
-    ).toBe('Reply anytime · [Open in Roomote](https://roomote.dev/task/123)');
+    ).toBe('Reply anytime · [Open conversation](https://roomote.dev/task/123)');
 
     expect(
       buildThreadReplyFooterText({
@@ -249,7 +249,7 @@ describe('chat message copy builders', () => {
         livePreviewUrl: 'https://preview.roomote.dev',
       }),
     ).toBe(
-      'Reply anytime · [PR #7](https://github.com/org/repo/pull/7) · [Open in Roomote](https://roomote.dev/task/123)',
+      'Reply anytime · [PR #7](https://github.com/org/repo/pull/7) · [Open conversation](https://roomote.dev/task/123)',
     );
 
     expect(
@@ -267,7 +267,7 @@ describe('chat message copy builders', () => {
         ],
       }),
     ).toBe(
-      'Reply anytime · [PR #7](https://github.com/org/repo/pull/7), [PR #8](https://github.com/org/other-repo/pull/8) · [Open in Roomote](https://roomote.dev/task/123)',
+      'Reply anytime · [PR #7](https://github.com/org/repo/pull/7), [PR #8](https://github.com/org/other-repo/pull/8) · [Open conversation](https://roomote.dev/task/123)',
     );
 
     expect(
@@ -276,7 +276,7 @@ describe('chat message copy builders', () => {
         livePreviewUrl: 'https://preview.roomote.dev',
         formatLink: (label, url) => `<${url}|${label}>`,
       }),
-    ).toBe('Reply anytime · <https://roomote.dev/task/123|Open in Roomote>');
+    ).toBe('Reply anytime · <https://roomote.dev/task/123|Open conversation>');
 
     expect(
       buildThreadReplyFooterText({
@@ -284,7 +284,7 @@ describe('chat message copy builders', () => {
         formatFooterText: (text) => `-# ${text}`,
       }),
     ).toBe(
-      '-# Reply anytime · [Open in Roomote](https://roomote.dev/task/123)',
+      '-# Reply anytime · [Open conversation](https://roomote.dev/task/123)',
     );
   });
 
@@ -298,7 +298,7 @@ describe('chat message copy builders', () => {
           livePreviewUrl: 'https://preview.roomote.dev',
         }),
       ).toBe(
-        `Reply anytime${count === 1 ? ' · 1 task running' : count >= 2 ? ` · ${count} tasks running` : ''} · [Open in Roomote](https://roomote.dev/sessions/1)`,
+        `Reply anytime${count === 1 ? ' · 1 task running' : count >= 2 ? ` · ${count} tasks running` : ''} · [Open conversation](https://roomote.dev/sessions/1)`,
       );
     },
   );
@@ -319,7 +319,7 @@ describe('chat message copy builders', () => {
     'https://roomote.dev/sessions/1?task=task-1&artifact=notes.md&v=2&utm_source=slack',
   ])('preserves caller-provided navigation in %s', (taskUrl) => {
     expect(buildThreadReplyFooterText({ taskUrl })).toBe(
-      `Reply anytime · [Open in Roomote](${taskUrl})`,
+      `Reply anytime · [Open conversation](${taskUrl})`,
     );
   });
 
@@ -330,7 +330,7 @@ describe('chat message copy builders', () => {
         webAppUrl: 'https://roomote.dev/sessions/owner',
       }),
     ).toBe(
-      'Reply anytime · [Open in Roomote](https://roomote.dev/setup?utm_source=slack)',
+      'Reply anytime · [Open conversation](https://roomote.dev/setup?utm_source=slack)',
     );
   });
 
@@ -346,7 +346,7 @@ describe('chat message copy builders', () => {
         },
       }),
     ).toBe(
-      'Reply anytime · 1 task running · [Open in Roomote](https://roomote.dev/sessions/owner?utm_source=slack&utm_medium=link&utm_campaign=reply)',
+      'Reply anytime · 1 task running · [Open conversation](https://roomote.dev/sessions/owner?utm_source=slack&utm_medium=link&utm_campaign=reply)',
     );
   });
 

@@ -369,14 +369,16 @@ describe('MockTelegramServer', () => {
     const posted = await provider.postMessage({
       channelId: '111000111',
       text: 'Initial reply',
-      footerText: 'Reply anytime · [Open in Roomote](https://roomote.test/s/1)',
+      footerText:
+        'Reply anytime · [Open conversation](https://roomote.test/s/1)',
       textFormat: 'markdown',
     });
     await provider.editMessageText({
       channelId: '111000111',
       messageId: posted.messageId,
       text: 'Updated reply',
-      footerText: 'Reply anytime · [Open in Roomote](https://roomote.test/s/1)',
+      footerText:
+        'Reply anytime · [Open conversation](https://roomote.test/s/1)',
       textFormat: 'markdown',
     });
 
@@ -388,7 +390,7 @@ describe('MockTelegramServer', () => {
       markdown: [
         'Updated reply',
         '',
-        '<footer>Reply anytime · <a href="https://roomote.test/s/1">Open in Roomote</a></footer>',
+        '<footer>Reply anytime · <a href="https://roomote.test/s/1">Open conversation</a></footer>',
       ].join('\n'),
     });
   });
@@ -402,7 +404,7 @@ describe('MockTelegramServer', () => {
       channelId: '111000111',
       text: 'Near-limit live update',
       htmlText: `<blockquote>${'x'.repeat(4_050)}</blockquote>`,
-      footerText: 'Open in Roomote',
+      footerText: 'Open conversation',
     });
 
     const message = (server.getState().messages ?? []).find(
@@ -411,14 +413,14 @@ describe('MockTelegramServer', () => {
     const richMarkdown = String(message?.rich_message?.markdown ?? '');
     expect(richMarkdown.length).toBeGreaterThan(4_096);
     expect(richMarkdown.length).toBeLessThanOrEqual(32_768);
-    expect(richMarkdown).toContain('<footer>Open in Roomote</footer>');
+    expect(richMarkdown).toContain('<footer>Open conversation</footer>');
   });
 
   it('delivers exact-limit code followed by prose without an empty continuation', async () => {
     const { server, baseUrl } = await startServer();
     onCleanup(() => server.stop());
-    const footerText = 'Open in Roomote';
-    const footerSuffix = '\n\n<footer>Open in Roomote</footer>';
+    const footerText = 'Open conversation';
+    const footerSuffix = '\n\n<footer>Open conversation</footer>';
     const bodyLimit = TELEGRAM_MAX_RICH_MESSAGE_LENGTH - footerSuffix.length;
     const block = `\`\`\`ts\n${'x'.repeat(bodyLimit - 10)}\n\`\`\``;
     const posted = await providerFor(baseUrl).postMessage({

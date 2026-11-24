@@ -538,7 +538,7 @@ describe('processDiscordFastAgentMessage', () => {
       expect.objectContaining({
         channelId: 'channel-1',
         messageId: 'retry-1',
-        text: 'Connection restored.\n\n-# Reply anytime · [Open in Roomote](https://roomote.example.com/sessions/fast-session-1?utm_source=discord&utm_medium=link&utm_campaign=discord.fast_reply)',
+        text: 'Connection restored.\n\n-# Reply anytime · [Open conversation](https://roomote.example.com/sessions/fast-session-1?utm_source=discord&utm_medium=link&utm_campaign=discord.fast_reply)',
         images: [resolvedImage],
       }),
     );

@@ -228,7 +228,7 @@ describe('Slack lifecycle footer refresh', () => {
   it('compares against the footer as written, not as Slack escapes it on read-back', async () => {
     const provider = slack();
     const written =
-      '<https://app/sessions/s?utm_source=slack&utm_medium=link|Open in Roomote>';
+      '<https://app/sessions/s?utm_source=slack&utm_medium=link|Open conversation>';
     provider.getMessageBlocks.mockResolvedValue([
       body,
       buildSlackThreadReplyFooterBlock({

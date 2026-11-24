@@ -602,7 +602,8 @@ describe('TelegramCommunicationProvider', () => {
       replyToMessageId: '42',
       text: '**Complete.**',
       textFormat: 'markdown',
-      footerText: 'Reply anytime · [Open in Roomote](https://roomote.test/s/1)',
+      footerText:
+        'Reply anytime · [Open conversation](https://roomote.test/s/1)',
       buttons: [[{ text: 'Open', url: 'https://roomote.test/s/1' }]],
     });
 
@@ -617,7 +618,7 @@ describe('TelegramCommunicationProvider', () => {
         markdown: [
           '**Complete.**',
           '',
-          '<footer>Reply anytime · <a href="https://roomote.test/s/1">Open in Roomote</a></footer>',
+          '<footer>Reply anytime · <a href="https://roomote.test/s/1">Open conversation</a></footer>',
         ].join('\n'),
       },
       message_thread_id: 7,
@@ -641,7 +642,7 @@ describe('TelegramCommunicationProvider', () => {
       provider.postMessage({
         channelId: '123',
         text: 'Completed.',
-        footerText: 'Open in Roomote: https://roomote.test/s/1',
+        footerText: 'Open conversation: https://roomote.test/s/1',
       }),
     ).rejects.toThrow('Telegram sendRichMessage failed (500)');
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -707,7 +708,8 @@ describe('TelegramCommunicationProvider', () => {
       channelId: '123',
       text: 'Long narrative. '.repeat(3_000),
       textFormat: 'markdown',
-      footerText: 'Reply anytime · [Open in Roomote](https://roomote.test/s/1)',
+      footerText:
+        'Reply anytime · [Open conversation](https://roomote.test/s/1)',
     });
 
     const methods = fetchMock.mock.calls.map((call) =>
@@ -956,7 +958,8 @@ describe('TelegramCommunicationProvider', () => {
       channelId: '123',
       messageId: '42',
       text: 'Completed.',
-      footerText: 'Reply anytime · [Open in Roomote](https://roomote.test/s/1)',
+      footerText:
+        'Reply anytime · [Open conversation](https://roomote.test/s/1)',
       buttons: [[{ text: 'Open', url: 'https://roomote.test/s/1' }]],
     });
 
@@ -969,7 +972,7 @@ describe('TelegramCommunicationProvider', () => {
         markdown: [
           '<p>Completed.</p>',
           '',
-          '<footer>Reply anytime · <a href="https://roomote.test/s/1">Open in Roomote</a></footer>',
+          '<footer>Reply anytime · <a href="https://roomote.test/s/1">Open conversation</a></footer>',
         ].join('\n'),
       },
       link_preview_options: { is_disabled: true },

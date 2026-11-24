@@ -331,7 +331,7 @@ export function buildThreadReplyFooterText({
       if (key.startsWith('utm_')) webUrl.searchParams.set(key, value);
     }
   }
-  items.push(formatLink('Open in Roomote', webUrl.toString()));
+  items.push(formatLink('Open conversation', webUrl.toString()));
   return formatFooterText(items.join(' · '));
 }
 

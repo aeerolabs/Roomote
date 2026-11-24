@@ -61,7 +61,7 @@ describe('thread-reply-footer-ops', () => {
       livePreviewUrl: null,
     });
     mockBuildFooterText.mockReturnValue(
-      'Reply anytime · <https://github.com/o/r/pull/7|PR #7> · <https://app.example.com/task/t1|Open in Roomote>',
+      'Reply anytime · <https://github.com/o/r/pull/7|PR #7> · <https://app.example.com/task/t1|Open conversation>',
     );
   });
 
@@ -80,7 +80,7 @@ describe('thread-reply-footer-ops', () => {
         elements: [
           {
             type: 'mrkdwn',
-            text: 'Reply anytime · 0 tasks running · <https://app|Open in Roomote>',
+            text: 'Reply anytime · 0 tasks running · <https://app|Open conversation>',
           },
         ],
       }),
@@ -92,7 +92,7 @@ describe('thread-reply-footer-ops', () => {
         elements: [
           {
             type: 'mrkdwn',
-            text: 'Reply anytime · 1 task running · <https://app|Open in Roomote>',
+            text: 'Reply anytime · 1 task running · <https://app|Open conversation>',
           },
         ],
       }),
@@ -104,7 +104,7 @@ describe('thread-reply-footer-ops', () => {
         elements: [
           {
             type: 'mrkdwn',
-            text: 'Reply anytime · 2 tasks running · <https://example.com|PR #1> · <https://app|Open in Roomote>',
+            text: 'Reply anytime · 2 tasks running · <https://example.com|PR #1> · <https://app|Open conversation>',
           },
         ],
       }),

@@ -1044,7 +1044,7 @@ describe('buildFastAgentSurfaceReplyDelivery', () => {
               ? '> **Matt:** Follow up\n\nDone'
               : expect.stringContaining('> **Matt:** Follow up\n\nDone\n\n'),
           ...(surface === 'telegram'
-            ? { footerText: expect.stringContaining('[Open in Roomote]') }
+            ? { footerText: expect.stringContaining('[Open conversation]') }
             : {}),
         }),
       );

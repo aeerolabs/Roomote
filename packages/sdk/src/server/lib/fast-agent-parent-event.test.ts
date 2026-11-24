@@ -1208,7 +1208,7 @@ describe('deliverFastAgentParentEvent', () => {
             elements: [
               {
                 type: 'mrkdwn',
-                text: expect.stringContaining('|Open in Roomote>'),
+                text: expect.stringContaining('|Open conversation>'),
               },
             ],
           },
@@ -3432,7 +3432,7 @@ describe('deliverFastAgentParentEvent', () => {
       expect.objectContaining({
         channelId: 'telegram-chat-1',
         text: `<h3>Weekly scan</h3>\n\n${message}`,
-        footerText: `Reply anytime · [Open in Roomote](https://api.roomote.example/sessions/${parent.sessionId}?utm_source=telegram&utm_medium=link&utm_campaign=telegram.fast_reply)`,
+        footerText: `Reply anytime · [Open conversation](https://api.roomote.example/sessions/${parent.sessionId}?utm_source=telegram&utm_medium=link&utm_campaign=telegram.fast_reply)`,
         textFormat: 'markdown',
       }),
     );
@@ -3563,7 +3563,7 @@ describe('deliverFastAgentParentEvent', () => {
       channelId: 'channel-1',
       idempotencyKey: 'fast-parent-artifact:artifact-1:v1',
       text: expect.stringMatching(
-        /^The proof is ready\.\n\n-# Reply anytime · \[Open in Roomote\]\(.*\/sessions\/.*\)$/,
+        /^The proof is ready\.\n\n-# Reply anytime · \[Open conversation\]\(.*\/sessions\/.*\)$/,
       ),
       textFormat: 'markdown',
       images: [
@@ -3659,13 +3659,13 @@ describe('deliverFastAgentParentEvent', () => {
               ? 'The proof is ready.'
               : expect.stringMatching(
                   new RegExp(
-                    `^The proof is ready\\.\\n\\nReply anytime · \\[Open in Roomote\\]\\(.*utm_source=${surface}.*\\)$`,
+                    `^The proof is ready\\.\\n\\nReply anytime · \\[Open conversation\\]\\(.*utm_source=${surface}.*\\)$`,
                   ),
                 ),
           ...(surface === 'telegram'
             ? {
                 footerText: expect.stringMatching(
-                  /Reply anytime · \[Open in Roomote\]\(.*utm_source=telegram.*\)/,
+                  /Reply anytime · \[Open conversation\]\(.*utm_source=telegram.*\)/,
                 ),
               }
             : {}),
@@ -4743,7 +4743,7 @@ describe('deliverFastAgentParentEvent', () => {
       threadId: 'thread-1',
       idempotencyKey: 'fast-parent-pr-feedback:feedback-123',
       text: expect.stringMatching(
-        /^There is new PR feedback\.\n\n-# Reply anytime · \[PR #42\]\(https:\/\/github\.com\/acme\/web\/pull\/42\) · \[Open in Roomote\]\(.*\/sessions\/.*\)$/,
+        /^There is new PR feedback\.\n\n-# Reply anytime · \[PR #42\]\(https:\/\/github\.com\/acme\/web\/pull\/42\) · \[Open conversation\]\(.*\/sessions\/.*\)$/,
       ),
       textFormat: 'markdown',
       images: [],
@@ -4832,7 +4832,7 @@ describe('deliverFastAgentParentEvent', () => {
       threadId: 'topic-7',
       text: 'There is new PR feedback.',
       footerText: expect.stringMatching(
-        /^Reply anytime · \[PR #42\]\(https:\/\/github\.com\/acme\/web\/pull\/42\) · \[Open in Roomote\]\(.*\/sessions\/.*\)$/,
+        /^Reply anytime · \[PR #42\]\(https:\/\/github\.com\/acme\/web\/pull\/42\) · \[Open conversation\]\(.*\/sessions\/.*\)$/,
       ),
       textFormat: 'markdown',
       images: [],
