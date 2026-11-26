@@ -120,28 +120,41 @@ export async function resolveTaskGitHubCoAuthorTrailers(
       .orderBy(asc(taskMessages.ts)),
   ]);
 
-  return resolveGitHubCoAuthorTrailers(
-    [
-      taskRun.actingUserId,
-      task?.initiatorUserId,
-      ...senders.map((sender) => sender.userId),
-    ],
-    options,
+  const coAuthors = await resolveGitHubCoAuthors([
+    taskRun.actingUserId,
+    task?.initiatorUserId,
+    ...senders.map((sender) => sender.userId),
+  ]);
+  return coAuthors
+    .filter((identity) => identity.githubUserId !== options.excludeGitHubUserId)
+    .map(formatCoAuthorTrailer);
+}
+
+type ConversationParticipants = {
+  actingUserId: string | null | undefined;
+  conversationId: string | null | undefined;
+};
+
+/**
+ * Co-author trailers for a write made from a conversation (a Slack thread or
+ * the web chat) through the GitHub tools rather than a coding task.
+ */
+export async function resolveConversationGitHubCoAuthorTrailers(
+  participants: ConversationParticipants,
+): Promise<string[]> {
+  return (await resolveConversationGitHubCoAuthors(participants)).map(
+    formatCoAuthorTrailer,
   );
 }
 
 /**
- * Co-author trailers for a write made from a conversation (a Slack thread or
- * the web chat) through the GitHub tools rather than a coding task: the person
- * making the call, the conversation's owner, and everyone who wrote into it.
+ * The linked GitHub accounts of a conversation: the person making the call,
+ * the conversation's owner, and everyone who wrote into it.
  */
-export async function resolveConversationGitHubCoAuthorTrailers({
+export async function resolveConversationGitHubCoAuthors({
   actingUserId,
   conversationId,
-}: {
-  actingUserId: string | null | undefined;
-  conversationId: string | null | undefined;
-}): Promise<string[]> {
+}: ConversationParticipants): Promise<GitHubIdentity[]> {
   const [conversation, senders] = conversationId
     ? await Promise.all([
         db.query.fastAgentConversations.findFirst({
@@ -165,17 +178,16 @@ export async function resolveConversationGitHubCoAuthorTrailers({
       ])
     : [undefined, []];
 
-  return resolveGitHubCoAuthorTrailers([
+  return resolveGitHubCoAuthors([
     actingUserId,
     conversation?.userId,
     ...senders.map((sender) => sender.userId),
   ]);
 }
 
-async function resolveGitHubCoAuthorTrailers(
+async function resolveGitHubCoAuthors(
   participantUserIds: Array<string | null | undefined>,
-  options: { excludeGitHubUserId?: number | null } = {},
-): Promise<string[]> {
+): Promise<GitHubIdentity[]> {
   const userIds = [
     ...new Set(participantUserIds.filter((id): id is string => Boolean(id))),
   ];
@@ -204,7 +216,5 @@ async function resolveGitHubCoAuthorTrailers(
     participantUserIds,
     identities,
     isExcludedLogin: GitHubSchemas.isManagedRoomoteGitHubLogin,
-  })
-    .filter((identity) => identity.githubUserId !== options.excludeGitHubUserId)
-    .map(formatCoAuthorTrailer);
+  });
 }

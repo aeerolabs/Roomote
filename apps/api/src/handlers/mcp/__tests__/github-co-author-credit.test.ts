@@ -1,12 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { INTEGRATION_TOOL_FAST_CONVERSATION_HEADER } from '@roomote/types';
 
-const { resolveTrailers } = vi.hoisted(() => ({ resolveTrailers: vi.fn() }));
+const { resolveTrailers, resolveCoAuthors, addAssignees } = vi.hoisted(() => ({
+  resolveTrailers: vi.fn(),
+  resolveCoAuthors: vi.fn(),
+  addAssignees: vi.fn(),
+}));
 vi.mock('@roomote/sdk/server', async (original) => ({
   ...(await original<typeof import('@roomote/sdk/server')>()),
   resolveConversationGitHubCoAuthorTrailers: resolveTrailers,
+  resolveConversationGitHubCoAuthors: resolveCoAuthors,
 }));
-import { addGitHubCoAuthorCredit } from '../github-co-author-credit';
+vi.mock('@roomote/github', async (original) => ({
+  ...(await original<typeof import('@roomote/github')>()),
+  getOctokit: () => ({ rest: { issues: { addAssignees } } }),
+}));
+import {
+  addGitHubCoAuthorCredit,
+  assignConversationToPullRequest,
+  readCreatedPullRequestNumber,
+} from '../github-co-author-credit';
 
 const conversationId = '11111111-1111-4111-8111-111111111111';
 const headers = new Headers({
@@ -69,5 +82,45 @@ describe('addGitHubCoAuthorCredit', () => {
       }),
     ).toBe(taskWrite);
     expect(resolveTrailers).not.toHaveBeenCalled();
+  });
+});
+
+describe('assigning the conversation to a pull request', () => {
+  it('reads the new pull request number from the tool reply', () => {
+    const reply = JSON.stringify({
+      result: {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              url: 'https://github.com/aeerolabs/aeero-v1/pull/1121',
+            }),
+          },
+        ],
+      },
+    });
+    expect(readCreatedPullRequestNumber(reply, 'aeerolabs/aeero-v1')).toBe(
+      1121,
+    );
+    expect(readCreatedPullRequestNumber(reply, 'aeerolabs/other')).toBeNull();
+  });
+
+  it('assigns everyone in the conversation with a linked GitHub account', async () => {
+    resolveCoAuthors.mockResolvedValue([
+      { githubLogin: 'nintang', githubUserId: 123 },
+    ]);
+    await assignConversationToPullRequest({
+      actingUserId: 'david',
+      conversationId,
+      repositoryFullName: 'aeerolabs/aeero-v1',
+      pullNumber: 1121,
+      token: 'token',
+    });
+    expect(addAssignees).toHaveBeenCalledWith({
+      owner: 'aeerolabs',
+      repo: 'aeero-v1',
+      issue_number: 1121,
+      assignees: ['nintang'],
+    });
   });
 });
