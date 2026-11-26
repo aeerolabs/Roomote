@@ -27,6 +27,7 @@ import { Env } from '@roomote/env';
 import { z } from 'zod';
 
 import type { Variables } from '../../types';
+import { addGitHubCoAuthorCredit } from './github-co-author-credit';
 import { normalizeNativeGitHubPrProvenance } from './github-pr-provenance';
 
 import {
@@ -297,7 +298,11 @@ export function createGithubMcp(options?: {
     // calls can select the installation that owns their target without a
     // prior request binding the upstream connection to another credential.
     statelessUpstream: true,
-    transformRequest: normalizeNativeGitHubPrProvenance,
+    transformRequest: async (input) =>
+      addGitHubCoAuthorCredit({
+        ...input,
+        request: await normalizeNativeGitHubPrProvenance(input),
+      }),
     resolveCredentials: async (auth, _params, request) => {
       if (Array.isArray(request))
         throw new McpProxyError(

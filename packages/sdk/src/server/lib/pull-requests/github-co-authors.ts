@@ -4,9 +4,12 @@ import {
   db,
   desc,
   eq,
+  fastAgentConversations,
+  fastAgentMessages,
   githubUserMappings,
   inArray,
   isNotNull,
+  sql,
   taskMessages,
   tasks,
   type TaskRun,
@@ -117,11 +120,62 @@ export async function resolveTaskGitHubCoAuthorTrailers(
       .orderBy(asc(taskMessages.ts)),
   ]);
 
-  const participantUserIds = [
-    taskRun.actingUserId,
-    task?.initiatorUserId,
+  return resolveGitHubCoAuthorTrailers(
+    [
+      taskRun.actingUserId,
+      task?.initiatorUserId,
+      ...senders.map((sender) => sender.userId),
+    ],
+    options,
+  );
+}
+
+/**
+ * Co-author trailers for a write made from a conversation (a Slack thread or
+ * the web chat) through the GitHub tools rather than a coding task: the person
+ * making the call, the conversation's owner, and everyone who wrote into it.
+ */
+export async function resolveConversationGitHubCoAuthorTrailers({
+  actingUserId,
+  conversationId,
+}: {
+  actingUserId: string | null | undefined;
+  conversationId: string | null | undefined;
+}): Promise<string[]> {
+  const [conversation, senders] = conversationId
+    ? await Promise.all([
+        db.query.fastAgentConversations.findFirst({
+          where: eq(fastAgentConversations.id, conversationId),
+          columns: { userId: true },
+        }),
+        db
+          .select({
+            userId: sql<
+              string | null
+            >`${fastAgentMessages.metadata} ->> 'userId'`,
+          })
+          .from(fastAgentMessages)
+          .where(
+            and(
+              eq(fastAgentMessages.conversationId, conversationId),
+              eq(fastAgentMessages.role, 'user'),
+            ),
+          )
+          .orderBy(asc(fastAgentMessages.ts)),
+      ])
+    : [undefined, []];
+
+  return resolveGitHubCoAuthorTrailers([
+    actingUserId,
+    conversation?.userId,
     ...senders.map((sender) => sender.userId),
-  ];
+  ]);
+}
+
+async function resolveGitHubCoAuthorTrailers(
+  participantUserIds: Array<string | null | undefined>,
+  options: { excludeGitHubUserId?: number | null } = {},
+): Promise<string[]> {
   const userIds = [
     ...new Set(participantUserIds.filter((id): id is string => Boolean(id))),
   ];
