@@ -27,7 +27,12 @@ import { Env } from '@roomote/env';
 import { z } from 'zod';
 
 import type { Variables } from '../../types';
-import { addGitHubCoAuthorCredit } from './github-co-author-credit';
+import {
+  addGitHubCoAuthorCredit,
+  assignConversationToPullRequest,
+  readCreatedPullRequestNumber,
+} from './github-co-author-credit';
+import { readFastConversationIdHeader } from './tool-approval-enforcement';
 import { normalizeNativeGitHubPrProvenance } from './github-pr-provenance';
 
 import {
@@ -415,12 +420,69 @@ export function createGithubMcp(options?: {
       return handleEnablePullRequestAutoMerge(c, body);
     }
     await next();
+    if (getToolCallName(body) === 'create_pull_request' && c.res.ok) {
+      // Not awaited: the reply goes back while the assignment runs.
+      void assignAfterPullRequestCreated({
+        reply: c.res.clone(),
+        body,
+        rawAuth: c.get('authContext'),
+        headers: c.req.raw.headers,
+      });
+    }
     if (getJsonRpcMethod(body) === 'tools/list') {
       c.res = await appendAutoMergeToolDefinition(c.res, c.get('authContext'));
     }
   });
   app.route('/', proxy);
   return app;
+}
+
+async function assignAfterPullRequestCreated({
+  reply,
+  body,
+  rawAuth,
+  headers,
+}: {
+  reply: Response;
+  body: unknown;
+  rawAuth: Variables['authContext'];
+  headers: Headers;
+}): Promise<void> {
+  try {
+    if (!rawAuth || !isUserToken(rawAuth)) {
+      return;
+    }
+    const args = (body as { params?: { arguments?: unknown } }).params
+      ?.arguments;
+    const picked = await pickInstallation(getTargetHint(args));
+    if (!picked.connectedTarget) {
+      return;
+    }
+    const pullNumber = readCreatedPullRequestNumber(
+      await reply.text(),
+      picked.connectedTarget.fullName,
+    );
+    if (!pullNumber) {
+      return;
+    }
+    await assignConversationToPullRequest({
+      actingUserId: await resolveActingUserId({
+        userId: rawAuth.userId ?? null,
+        tokenType: 'auth',
+      }),
+      conversationId: readFastConversationIdHeader(headers),
+      repositoryFullName: picked.connectedTarget.fullName,
+      pullNumber,
+      token: await mintInstallationToken(picked),
+    });
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        event: 'github_mcp_pr_assign_failed',
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
 }
 
 async function handleEnablePullRequestAutoMerge(

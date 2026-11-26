@@ -1,4 +1,6 @@
+import { getOctokit } from '@roomote/github';
 import {
+  resolveConversationGitHubCoAuthors,
   resolveConversationGitHubCoAuthorTrailers,
   withCoAuthorTrailers,
 } from '@roomote/sdk/server';
@@ -61,4 +63,65 @@ export async function addGitHubCoAuthorCredit(input: {
       },
     },
   };
+}
+
+/**
+ * The number of the pull request a `create_pull_request` reply describes, or
+ * null. The reply nests GitHub's JSON inside a JSON-RPC text block (sometimes
+ * as a server-sent event), so the pull request's own URL is the steady anchor.
+ */
+export function readCreatedPullRequestNumber(
+  replyText: string,
+  repositoryFullName: string,
+): number | null {
+  const escaped = repositoryFullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`github\\.com/${escaped}/pull/(\\d+)`, 'i').exec(
+    replyText,
+  );
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * GitHub lists a pull request's participants from its author, commenters and
+ * assignees. A pull request Kojo opens is authored by the GitHub App, so the
+ * people who asked for it are assigned instead, which also shows them in the
+ * pull request's participants. Best effort: a failure is logged, never raised.
+ */
+export async function assignConversationToPullRequest({
+  actingUserId,
+  conversationId,
+  repositoryFullName,
+  pullNumber,
+  token,
+}: {
+  actingUserId: string;
+  conversationId: string | null;
+  repositoryFullName: string;
+  pullNumber: number;
+  token: string;
+}): Promise<void> {
+  try {
+    const assignees = (
+      await resolveConversationGitHubCoAuthors({ actingUserId, conversationId })
+    ).map((identity) => identity.githubLogin);
+    if (assignees.length === 0) {
+      return;
+    }
+    const [owner, repo] = repositoryFullName.split('/');
+    await getOctokit(token).rest.issues.addAssignees({
+      owner: owner!,
+      repo: repo!,
+      issue_number: pullNumber,
+      assignees,
+    });
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        event: 'github_mcp_pr_assign_failed',
+        repositoryFullName,
+        pullNumber,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
 }
