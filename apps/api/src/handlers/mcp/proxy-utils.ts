@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 
 import {
   filterMcpToolDefinitions,
@@ -16,6 +16,10 @@ import {
   assertEgressUrlAllowed,
   createGuardedConnectOptions,
 } from '@roomote/sdk/server/safe-fetch';
+import {
+  formatMcpServerAccessDenied,
+  isMcpServerAllowedForUser,
+} from '@roomote/sdk/server/role-access';
 
 import type { Variables } from '../../types';
 import { fetchWithLongLivedStreamDispatcher } from '../long-lived-fetch';
@@ -219,6 +223,54 @@ export async function resolveTaskOrSessionUserIdOrNull(
 
   const [ownerUserId] = await getTaskHumanOwnerUserIds(db, taskRun.taskId);
   return ownerUserId ?? null;
+}
+
+/**
+ * Refuse a server R_ROLE_ACCESS_POLICY keeps from the person this call acts
+ * for (the live actor or task owner, as credentials are chosen).
+ */
+export async function assertMcpServerAccess(
+  auth: McpAuthContext,
+  serverId: string,
+): Promise<void> {
+  const allowed = await isMcpServerAllowedForUser(serverId, () =>
+    resolveTaskOrSessionUserIdOrNull(auth),
+  );
+
+  if (!allowed) {
+    throw new McpProxyError(403, formatMcpServerAccessDenied(serverId));
+  }
+}
+
+/**
+ * Route guard for a curated MCP server. The list a task receives already
+ * leaves out servers the acting person may not use; this refuses the call
+ * itself, since a sandbox can reach any proxy URL directly. Requests with no
+ * auth context fall through to the handler, which rejects them.
+ */
+export function requireMcpServerAccess(
+  serverId: string,
+): MiddlewareHandler<{ Variables: Variables }> {
+  return async (c, next) => {
+    const rawAuth = c.get('authContext');
+
+    if (rawAuth) {
+      const auth: McpAuthContext = isRunTokenContext(rawAuth)
+        ? { userId: rawAuth.userId, tokenType: 'run', runId: rawAuth.runId }
+        : { userId: rawAuth.userId, tokenType: 'auth' };
+
+      try {
+        await assertMcpServerAccess(auth, serverId);
+      } catch (error) {
+        if (error instanceof McpProxyError) {
+          return jsonRpcErrorResponse(error.httpStatus, -32000, error.message);
+        }
+        throw error;
+      }
+    }
+
+    await next();
+  };
 }
 
 /** The task a run token was minted for; null for any other caller. */

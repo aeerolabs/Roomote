@@ -40,7 +40,7 @@ describe('buildFastSessionReplyFooterText', () => {
         sessionId: '11111111-1111-4111-8111-111111111111',
       });
 
-      expect(footer).toContain('Open in Roomote');
+      expect(footer).toContain('Open conversation');
       expect(footer).toContain(
         '/sessions/11111111-1111-4111-8111-111111111111',
       );
@@ -52,29 +52,29 @@ describe('buildFastSessionReplyFooterText', () => {
     {
       provider: 'slack' as const,
       expectedPrLink: '<https://github.com/roomote/roomote/pull/123|PR #123>',
-      expectedWebLink: '|Open in Roomote>',
+      expectedWebLink: '|Open conversation>',
     },
     {
       provider: 'discord' as const,
       expectedPrLink: '[PR #123](https://github.com/roomote/roomote/pull/123)',
-      expectedWebLink: '[Open in Roomote](',
+      expectedWebLink: '[Open conversation](',
     },
     {
       provider: 'teams' as const,
       expectedPrLink: '[PR #123](https://github.com/roomote/roomote/pull/123)',
-      expectedWebLink: '[Open in Roomote](',
+      expectedWebLink: '[Open conversation](',
     },
     {
       provider: 'telegram' as const,
       expectedPrLink: '[PR #123](https://github.com/roomote/roomote/pull/123)',
-      expectedWebLink: '[Open in Roomote](',
+      expectedWebLink: '[Open conversation](',
     },
     ...(['github', 'gitlab', 'bitbucket', 'ado', 'gitea'] as const).map(
       (provider) => ({
         provider,
         expectedPrLink:
           '[PR #123](https://github.com/roomote/roomote/pull/123)',
-        expectedWebLink: '[Open in Roomote](',
+        expectedWebLink: '[Open conversation](',
       }),
     ),
   ])(
@@ -115,7 +115,7 @@ describe('buildFastSessionReplyFooterText', () => {
     });
 
     expect(footer).toContain(
-      'Reply anytime · [PR #123](https://github.com/roomote/roomote/pull/123), [PR #456](https://github.com/roomote/roomote/pull/456) · [Open in Roomote]',
+      'Reply anytime · [PR #123](https://github.com/roomote/roomote/pull/123), [PR #456](https://github.com/roomote/roomote/pull/456) · [Open conversation]',
     );
     expect(footer).not.toContain('Live preview');
   });
@@ -134,7 +134,7 @@ describe('buildFastSessionReplyFooterText', () => {
         livePreviewUrl: 'https://preview.roomote.dev',
       }),
     ).toBe(
-      `<sub>Reply anytime · [PR #123](https://github.com/roomote/roomote/pull/123) · [Open in Roomote](${buildFastSessionUrl('github', sessionId)})</sub>`,
+      `<sub>Reply anytime · [PR #123](https://github.com/roomote/roomote/pull/123) · [Open conversation](${buildFastSessionUrl('github', sessionId)})</sub>`,
     );
   });
 
@@ -147,12 +147,12 @@ describe('buildFastSessionReplyFooterText', () => {
     const body = buildAgentMailEmailBody(`Body text\n\n${markdown}`);
 
     expect(body.html).toContain(
-      `<p style="font-size:0.875em">Reply anytime · <a href="${escapeAgentMailHtml(buildFastSessionUrl('agentmail', sessionId))}">Open in Roomote</a></p>`,
+      `<p style="font-size:0.875em">Reply anytime · <a href="${escapeAgentMailHtml(buildFastSessionUrl('agentmail', sessionId))}">Open conversation</a></p>`,
     );
     expect(body.html).not.toContain('<hr');
     expect(body.html).not.toContain('--');
     expect(body.text).toContain(
-      `\n\n--\nReply anytime · Open in Roomote (${buildFastSessionUrl('agentmail', sessionId)})`,
+      `\n\n--\nReply anytime · Open conversation (${buildFastSessionUrl('agentmail', sessionId)})`,
     );
   });
 
@@ -170,10 +170,10 @@ describe('buildFastSessionReplyFooterText', () => {
     ]);
 
     expect(`${body.html}${actions.html}`).toContain(
-      `>Open in Roomote</a></p></div><div><a href="https://roomote.example/action?a=1&amp;b=2"`,
+      `>Open conversation</a></p></div><div><a href="https://roomote.example/action?a=1&amp;b=2"`,
     );
     expect(`${body.text}\n\n${actions.text}`).toContain(
-      `\n--\nReply anytime · Open in Roomote (${buildFastSessionUrl('agentmail', sessionId)})\n\n<Review>: https://roomote.example/action?a=1&b=2`,
+      `\n--\nReply anytime · Open conversation (${buildFastSessionUrl('agentmail', sessionId)})\n\n<Review>: https://roomote.example/action?a=1&b=2`,
     );
   });
 
@@ -189,7 +189,7 @@ describe('buildFastSessionReplyFooterText', () => {
     });
 
     expect(footer).not.toContain('Working on');
-    expect(footer).toContain('Open in Roomote');
+    expect(footer).toContain('Open conversation');
   });
 
   it.each([
@@ -223,7 +223,7 @@ describe('buildFastSessionReplyFooterText', () => {
           ).searchParams.has('task'),
         ).toBe(false);
         expect(footer).toContain(
-          provider === 'slack' ? '|Open in Roomote>' : '[Open in Roomote](',
+          provider === 'slack' ? '|Open conversation>' : '[Open conversation](',
         );
         expect(footer).not.toMatch(/^_/);
       }

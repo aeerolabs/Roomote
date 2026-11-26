@@ -554,7 +554,7 @@ describe('request_user_input guidance in workflow prompts', () => {
     });
 
     expect(harnessInstructions).toContain(
-      'prepend `> &#8203;<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> [View the session](https://example.com/task/123) or mention @',
+      'prepend `> &#8203;<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> [View the session](https://example.com/task/123) or mention @',
     );
     expect(harnessInstructions).toContain(
       'for follow-up asks.` at the top of the PR body file before creating or refreshing the pull request',

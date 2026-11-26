@@ -13,6 +13,7 @@ import type {
 import { isEligibleProvisionalCompletionText } from '../run-task/provisional-completion';
 import { captureWorkerException } from '../monitoring/sentry';
 import { getCallbackEventKey } from './utils';
+import { collectCodeChannelBranchDiff } from './code-channel-diff';
 
 const updateQueues = new Map<number, Promise<void>>();
 
@@ -223,6 +224,9 @@ async function renderCard(
       ...(output ? { output } : {}),
     });
 
+    if (result.codeChannel && state.status === 'complete') {
+      publishCodeChannelDiff(taskRun, context);
+    }
     if (!result.card) {
       runsWithoutCard.add(taskRun.id);
       return;
@@ -234,6 +238,34 @@ async function renderCard(
     if (request.settle && isSameCardState(getCardState(context), state)) {
       getCardState(context).settled = true;
     }
+  });
+}
+
+/**
+ * After a turn settles in a Slack code channel, publish the branch diff to
+ * the channel's Code tab. Detached so it never delays the card, and skipped
+ * when the diff has not changed since the last publish.
+ */
+function publishCodeChannelDiff(
+  taskRun: TaskRun,
+  context: RunTaskContext,
+): void {
+  const workspacePath = context.workspacePath;
+  if (typeof workspacePath !== 'string' || !workspacePath) return;
+
+  void (async () => {
+    const collected = await collectCodeChannelBranchDiff(workspacePath);
+    if (!collected) return;
+    if (context.slackCodeChannelLastDiff === collected.diff) return;
+    await sdk.taskRuns.publishSlackCodeChannelDiff({
+      runId: taskRun.id,
+      ...collected,
+    });
+    context.slackCodeChannelLastDiff = collected.diff;
+  })().catch((error) => {
+    console.warn(
+      `[SlackCodeChannels] Failed to publish the diff for run ${taskRun.id}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   });
 }
 

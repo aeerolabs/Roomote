@@ -228,6 +228,7 @@ export {
   slackInstallationsRelations,
   slackInstallationChannels,
   slackInstallationChannelsRelations,
+  slackCodeChannels,
   slackUserMappings,
   slackUserMappingsRelations,
   slackDirectoryUsers,

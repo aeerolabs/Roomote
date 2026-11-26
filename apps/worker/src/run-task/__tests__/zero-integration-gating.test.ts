@@ -225,6 +225,8 @@ vi.mock('../wait-for-external-sleep-action', () => ({
 }));
 
 vi.mock('../../lib/sync-runtime-git-author', () => ({
+  COMMIT_CO_AUTHORS_FILE_PATH: '/home/roomote/.roomote/commit-co-authors',
+  syncCommitCoAuthors: vi.fn().mockResolvedValue(undefined),
   syncRuntimeGitAuthor: syncRuntimeGitAuthorMock,
 }));
 

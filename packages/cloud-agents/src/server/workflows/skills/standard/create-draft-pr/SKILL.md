@@ -132,7 +132,7 @@ You are executing a command to create a draft pull request with the current chan
         <actions>
           <action>For repositories with uncommitted changes, run `cd <REPO_DIR> && git add -A && git diff --cached --name-status`.</action>
           <action>After `git add -A`, explicitly compare `git diff --cached --name-status` against the intended deliverables for this task. If any staged path is unexpected, unstage it with `git restore --staged <path>` before committing. Treat generated or untracked files as excluded by default unless they are clearly part of the requested delivery.</action>
-          <action>After the staged-path review is complete, run `cd <REPO_DIR> && git commit -m '<commit-message-for-this-repo>'`.</action>
+          <action>After the staged-path review is complete, run `cd <REPO_DIR> && git commit -m '<commit-message-for-this-repo>'`. When `$ROOMOTE_COMMIT_CO_AUTHORS_FILE` names a file that exists and is not empty, it holds `Co-authored-by` trailers for the other people working on this task, so commit with `cd <REPO_DIR> && git commit -m '<commit-message-for-this-repo>' -m "$(cat "$ROOMOTE_COMMIT_CO_AUTHORS_FILE")"` instead and copy the trailers exactly.</action>
           <action>If a repository has only unpushed commits and no working tree changes, skip the commit step for that repository.</action>
           <action>If hooks fail, fix the underlying issue instead of bypassing validation with `--no-verify` unless no other safe option remains.</action>
         </actions>

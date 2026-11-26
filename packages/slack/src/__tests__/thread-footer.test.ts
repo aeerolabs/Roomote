@@ -78,7 +78,7 @@ describe('getSlackThreadFooterText', () => {
         },
       }),
     ).toBe(
-      'Reply anytime · 1 task running · <https://app.example.com/sessions/owner?utm_source=slack|Open in Roomote>',
+      'Reply anytime · 1 task running · <https://app.example.com/sessions/owner?utm_source=slack|Open conversation>',
     );
   });
 
@@ -112,7 +112,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://github.com/roomote/app/pull/4321|PR #4321> · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://github.com/roomote/app/pull/4321|PR #4321> · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -133,7 +133,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -148,7 +148,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://github.com/roomote/app/pull/1234|PR #1234> · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://github.com/roomote/app/pull/1234|PR #1234> · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -170,7 +170,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://github.com/roomote/app/pull/1234|PR #1234> · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://github.com/roomote/app/pull/1234|PR #1234> · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -192,7 +192,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -222,7 +222,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -244,7 +244,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -267,7 +267,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -287,7 +287,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 
@@ -307,7 +307,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://github.com/roomote/app/pull/1234|PR #1234> · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://github.com/roomote/app/pull/1234|PR #1234> · <https://app.example.com/task/task-1|Open conversation>',
     );
 
     expect(environmentFindFirstMock).not.toHaveBeenCalled();
@@ -336,7 +336,7 @@ describe('getSlackThreadFooterText', () => {
         threadTs: '111.000',
       }),
     ).resolves.toBe(
-      'Reply anytime · <https://app.example.com/task/task-1|Open in Roomote>',
+      'Reply anytime · <https://app.example.com/task/task-1|Open conversation>',
     );
   });
 });

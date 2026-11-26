@@ -273,6 +273,28 @@ credential still use one installation; they do not automatically gain access
 to the other organizations. GitHub repositories explicitly listed together in
 an [environment](/environments) must still belong to one installation.
 
+## Write access follows the person asking
+
+Tasks push and open pull requests as the GitHub App, which can write to every
+repository it is installed on. A task only gets that write access for a
+repository when the person it acts for can write there on GitHub themselves:
+the person who asked, or for an automation, the person it runs as. Roomote
+checks their linked GitHub account's permission on the repository (write,
+maintain, or admin) and remembers the answer for a few minutes.
+
+Without that access, the task can still read the repository and answer
+questions, but it cannot push, and it cannot open, update, close, or reopen a
+pull request there. It says why: link your GitHub account under Settings ->
+Linked Accounts, or ask a maintainer of the repository for write access. When
+GitHub cannot be reached to check, the task does not write. When someone else
+joins a running task, its write access switches to theirs.
+
+On the pull requests it opens, the person who asked is the assignee. Everyone
+in the conversation with a linked GitHub account is credited with a
+`Co-authored-by` trailer on the task's commits and at the end of the pull
+request description, so they keep the credit whichever way it is merged.
+Roomote does not request reviewers; CODEOWNERS still does.
+
 ## Daily GitHub management
 
 Roomote can use GitHub's native tools directly, without starting a coding task:

@@ -1,6 +1,15 @@
-const { mockSyncActingUserId, mockSyncRuntimeGitAuthor } = vi.hoisted(() => ({
+const {
+  mockRefreshGitHubToken,
+  mockSyncActingUserId,
+  mockSyncRuntimeGitAuthor,
+} = vi.hoisted(() => ({
+  mockRefreshGitHubToken: vi.fn(),
   mockSyncActingUserId: vi.fn(),
   mockSyncRuntimeGitAuthor: vi.fn(),
+}));
+
+vi.mock('../polling/github-token-refresh', () => ({
+  refreshGitHubToken: mockRefreshGitHubToken,
 }));
 
 vi.mock('@roomote/sdk/client', () => ({
@@ -28,6 +37,39 @@ describe('prepareActorScopedTurn', () => {
       actingUserId: 'user-2',
     });
     mockSyncRuntimeGitAuthor.mockResolvedValue(undefined);
+    mockRefreshGitHubToken.mockResolvedValue({
+      nextRefreshAtMs: Date.now(),
+      source: 'app',
+      expiresAt: null,
+    });
+  });
+
+  it('re-mints the source-control token for a new acting user and not for the same one', async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const options = {
+      runId: 42,
+      targetUserId: 'user-2',
+      workingDirectory: '/tmp/workspace',
+      logPrefix: '[test]',
+      getLastKnownActorUserId: () => 'user-1',
+      logger,
+    };
+
+    await prepareActorScopedTurn(options);
+    expect(mockRefreshGitHubToken).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: 42 }),
+    );
+
+    mockRefreshGitHubToken.mockClear();
+    mockSyncActingUserId.mockResolvedValue({
+      result: 'unchanged',
+      actingUserId: 'user-2',
+    });
+    await prepareActorScopedTurn({
+      ...options,
+      getLastKnownActorUserId: () => 'user-2',
+    });
+    expect(mockRefreshGitHubToken).not.toHaveBeenCalled();
   });
 
   it('defers actor-scoped MCP refresh when reconnecting would interrupt a running turn', async () => {

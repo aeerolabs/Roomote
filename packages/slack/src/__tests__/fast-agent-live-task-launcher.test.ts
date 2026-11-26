@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   updateMessage: vi.fn(),
   normalizeIncomingText: vi.fn(async (text: string) => text),
   settleSlackLiveTaskCardForRun: vi.fn(),
+  openSlackCodeChannel: vi.fn(),
+  bindTaskToSlackCodeChannel: vi.fn(),
+  resolveSlackCodeChannelAnchor: vi.fn(),
   taskUrl: 'https://roomote.example/task/task-1',
 }));
 
@@ -82,18 +85,34 @@ vi.mock('../settle-live-task-card', () => ({
   settleSlackLiveTaskCardForRun: mocks.settleSlackLiveTaskCardForRun,
 }));
 
+vi.mock('../code-channels', () => ({
+  openSlackCodeChannel: mocks.openSlackCodeChannel,
+  bindTaskToSlackCodeChannel: mocks.bindTaskToSlackCodeChannel,
+}));
+
+vi.mock('../code-channel-routing', () => ({
+  resolveSlackCodeChannelAnchor: mocks.resolveSlackCodeChannelAnchor,
+}));
+
 import { RunStatus } from '@roomote/types';
 
 import { createFastAgentSlackLiveTaskLauncher } from '../fast-agent-live-task-launcher';
 
-function createLauncher(visibleInTranscript?: boolean) {
+function createLauncher(
+  visibleInTranscript?: boolean,
+  codeChannels?: { slackInstallationId: string; requesterSlackUserId?: string },
+) {
   return createFastAgentSlackLiveTaskLauncher({
     slack: {
       postMessage: mocks.postMessage,
       postMessageDetailed: mocks.postMessageDetailed,
       updateMessage: mocks.updateMessage,
       normalizeIncomingText: mocks.normalizeIncomingText,
+      createCodeChannel: vi.fn(),
+      archiveCodeChannel: vi.fn(),
+      setCodeChannelCommands: vi.fn(),
     },
+    ...(codeChannels ? { codeChannels } : {}),
     userId: 'user-1',
     teamId: 'T123',
     teamDomain: 'acme',
@@ -119,16 +138,19 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
     mocks.updateMessage.mockResolvedValue(true);
     mocks.settleSlackLiveTaskCardForRun.mockResolvedValue(undefined);
     mocks.taskUrl = 'https://roomote.example/task/task-1';
+    mocks.resolveSlackCodeChannelAnchor.mockResolvedValue(null);
+    mocks.openSlackCodeChannel.mockResolvedValue(null);
+    mocks.bindTaskToSlackCodeChannel.mockResolvedValue(undefined);
   });
 
   const taskLinkFallback = {
     channel: 'C123',
     thread_ts: '100.001',
-    text: 'Open in Roomote: https://roomote.example/task/task-1',
+    text: 'Open task: https://roomote.example/task/task-1',
     blocks: [
       {
         type: 'markdown',
-        text: '[Open in Roomote](https://roomote.example/task/task-1)',
+        text: '[Open task](https://roomote.example/task/task-1)',
       },
     ],
     unfurl_links: false,
@@ -169,7 +191,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
     expect(mocks.postMessageDetailed).toHaveBeenCalledWith({
       channel: 'C123',
       thread_ts: '100.001',
-      text: 'Starting task…\n<https://roomote.example/task/task-1|Open in Roomote>',
+      text: 'Starting task…\n<https://roomote.example/task/task-1|Open task>',
       blocks: [
         {
           type: 'task_card',
@@ -181,7 +203,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
             {
               type: 'url',
               url: 'https://roomote.example/task/task-1',
-              text: 'Open in Roomote',
+              text: 'Open task',
             },
           ],
         },
@@ -278,9 +300,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
       expect.objectContaining({
         blocks: [
           expect.objectContaining({
-            sources: [
-              { type: 'url', url: sessionUrl, text: 'Open in Roomote' },
-            ],
+            sources: [{ type: 'url', url: sessionUrl, text: 'Open task' }],
           }),
         ],
       }),
@@ -384,11 +404,11 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
       'https://roomote.example/sessions/session-1?utm_source=slack&utm_medium=link&utm_campaign=fast-delegation&task=task-1';
     expect(mocks.postMessage).toHaveBeenCalledWith({
       ...taskLinkFallback,
-      text: `Open in Roomote: ${sessionUrl}`,
+      text: `Open task: ${sessionUrl}`,
       blocks: [
         {
           type: 'markdown',
-          text: `[Open in Roomote](${sessionUrl})`,
+          text: `[Open task](${sessionUrl})`,
         },
       ],
     });
@@ -417,7 +437,7 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
               {
                 type: 'url',
                 url: 'https://roomote.example/task/task-1',
-                text: 'Open in Roomote',
+                text: 'Open task',
               },
             ],
           }),
@@ -440,5 +460,106 @@ describe('createFastAgentSlackLiveTaskLauncher', () => {
     });
 
     expect(mocks.postMessage).toHaveBeenCalledWith(taskLinkFallback);
+  });
+
+  describe('code channels', () => {
+    const launchInput = {
+      prompt: 'Fix the flaky login test',
+      environmentId: null,
+      parentSessionId: '11111111-1111-4111-8111-111111111111',
+      postKickoff: vi.fn(),
+    };
+
+    it('opens a code channel from the triggering message and runs the task there', async () => {
+      mocks.openSlackCodeChannel.mockResolvedValue({
+        channelId: 'CCODE',
+        anchorTs: '200.001',
+      });
+
+      await createLauncher(undefined, {
+        slackInstallationId: 'install-1',
+        requesterSlackUserId: 'U999',
+      })(launchInput);
+
+      expect(mocks.openSlackCodeChannel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slackInstallationId: 'install-1',
+          teamId: 'T123',
+          originChannelId: 'C123',
+          originMessageTs: '100.002',
+          prompt: 'Fix the flaky login test',
+          requesterUserId: 'U999',
+        }),
+      );
+      expect(mocks.bindTaskToSlackCodeChannel).toHaveBeenCalledWith({
+        channelId: 'CCODE',
+        anchorTs: '200.001',
+        taskId: 'task-1',
+        teamId: 'T123',
+      });
+      expect(mocks.enqueueTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channelId: 'CCODE',
+          threadTs: '200.001',
+          messageId: '200.001',
+        }),
+      );
+      // The task card goes to the code channel session, not the origin thread.
+      expect(mocks.postMessageDetailed).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'CCODE', thread_ts: '200.001' }),
+      );
+    });
+
+    it('stays in the thread when Slack will not open a code channel', async () => {
+      mocks.openSlackCodeChannel.mockResolvedValue(null);
+
+      await createLauncher(undefined, { slackInstallationId: 'install-1' })(
+        launchInput,
+      );
+
+      expect(mocks.bindTaskToSlackCodeChannel).not.toHaveBeenCalled();
+      expect(mocks.enqueueTask).toHaveBeenCalledWith(
+        expect.objectContaining({ channelId: 'C123', threadTs: '100.001' }),
+      );
+    });
+
+    it('stays in the thread when opening the channel throws', async () => {
+      mocks.openSlackCodeChannel.mockRejectedValue(new Error('db down'));
+
+      await createLauncher(undefined, { slackInstallationId: 'install-1' })(
+        launchInput,
+      );
+
+      expect(mocks.enqueueTask).toHaveBeenCalledWith(
+        expect.objectContaining({ channelId: 'C123', threadTs: '100.001' }),
+      );
+    });
+
+    it('keeps working in the current code channel and binds the new task to it', async () => {
+      mocks.resolveSlackCodeChannelAnchor.mockResolvedValue('100.001');
+
+      await createLauncher(undefined, { slackInstallationId: 'install-1' })(
+        launchInput,
+      );
+
+      expect(mocks.openSlackCodeChannel).not.toHaveBeenCalled();
+      expect(mocks.enqueueTask).toHaveBeenCalledWith(
+        expect.objectContaining({ channelId: 'C123', threadTs: '100.001' }),
+      );
+      // A later task in the channel follows it like the first one did.
+      expect(mocks.bindTaskToSlackCodeChannel).toHaveBeenCalledWith({
+        channelId: 'C123',
+        anchorTs: '100.001',
+        taskId: 'task-1',
+        teamId: 'T123',
+      });
+    });
+
+    it('never opens a code channel when the installation lacks the scope', async () => {
+      await createLauncher()(launchInput);
+
+      expect(mocks.resolveSlackCodeChannelAnchor).not.toHaveBeenCalled();
+      expect(mocks.openSlackCodeChannel).not.toHaveBeenCalled();
+    });
   });
 });

@@ -5,6 +5,9 @@
  * only requires changing these values.
  */
 export const PRODUCT_NAME = 'Roomote';
+
+/** Provenance line on pull requests the agent opens without a linked human. */
+export const PR_CREATED_BY_LINE = 'Created by Kojo.';
 export const PRODUCT_NAME_ROUTER = `${PRODUCT_NAME} Router`;
 /** Stable repository/package identity, even if the product brand changes. */
 export const ROOMOTE_REPOSITORY_NAME = 'Roomote';
@@ -264,7 +267,7 @@ export function rewritePrBodyAttribution(
   const normalizedDisplayName = displayName?.trim().replace(/[\r\n]+/g, ' ');
   const provenance = normalizedDisplayName
     ? `Opened on behalf of ${normalizedDisplayName}.`
-    : 'Created by Roomote.';
+    : PR_CREATED_BY_LINE;
 
   return `${body.slice(0, markers.start)}${provenance}${body.slice(markers.end)}`;
 }

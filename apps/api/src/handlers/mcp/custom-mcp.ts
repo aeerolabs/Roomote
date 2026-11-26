@@ -8,6 +8,7 @@ import {
 } from '@roomote/sdk/server';
 
 import {
+  assertMcpServerAccess,
   createMcpProxy,
   McpProxyError,
   resolveActingUserId,
@@ -64,6 +65,8 @@ export function createCustomMcpProxy() {
       ) {
         throw new McpProxyError(404, 'Custom MCP server not found');
       }
+
+      await assertMcpServerAccess(auth, server.name);
 
       let authHeader: string | null = null;
       let extraHeaders: Record<string, string> | undefined;

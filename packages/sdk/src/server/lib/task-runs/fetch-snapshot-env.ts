@@ -42,9 +42,12 @@ export async function fetchSnapshotEnv(
   // snapshot's shell env and the persisted image.
   const sourceControlProviders =
     await resolveTaskRunSourceControlProviders(taskRun);
+  // A snapshot can outlive and be reused beyond the person who asked, so it
+  // gets only what R_ROLE_ACCESS_POLICY leaves open to every task.
   const deploymentEnvVars = await fetchResolvedRuntimeEnvVars(undefined, {
     sourceControlProvider: sourceControlProviders,
     includeSandboxOpenRouterApiKey: Boolean(taskRun.payload.environmentId),
+    roleAccess: { taskRun: null, mintAwsCredentials: false },
   });
 
   const sourceControlToken = await createSourceControlTokenForTaskRun(

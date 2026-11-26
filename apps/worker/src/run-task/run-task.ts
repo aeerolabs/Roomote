@@ -121,6 +121,10 @@ import { wrapCommunicationMessage } from './communication-message-prompt';
 import { settleMissingChatCloseoutFallback } from './missing-chat-closeout-fallback-settlement';
 import { isMissingSlackReplyTargetProcedureError } from './slack-reply-target';
 import { installRepositoryJudgement } from './repository-judgement';
+import {
+  COMMIT_CO_AUTHORS_FILE_PATH,
+  syncCommitCoAuthors,
+} from '../lib/sync-runtime-git-author';
 
 function formatEnvironmentInstructions(
   instructions?: string,
@@ -716,6 +720,8 @@ export const runTask = async ({
   skipExternalSleepAction = false,
   keepaliveMsOverride,
 }: RunTaskOptions) => {
+  // Callbacks that read the checkout (the Slack code channel diff) find it here.
+  context.workspacePath = workspacePath;
   const userAttentionNotificationsEnabled = Boolean(
     task?.surface === 'web' &&
     task.initiatorUserId &&
@@ -930,6 +936,7 @@ export const runTask = async ({
     delete runtimeEnv.ROOMOTE_SLACK_THREAD_TS;
     delete runtimeEnv.ROOMOTE_SLACK_REPLY_SATISFACTION_STATE_FILE;
     runtimeEnv.ROOMOTE_TASK_TERMINAL = 'true';
+    runtimeEnv.ROOMOTE_COMMIT_CO_AUTHORS_FILE = COMMIT_CO_AUTHORS_FILE_PATH;
 
     const selectedSkillsFolder = resolvePackagedSkillsFolder({
       configuredSkillsFolder: undefined,
@@ -1177,6 +1184,14 @@ export const runTask = async ({
     for (const repositoryPath of Object.values(repoPaths ?? {})) {
       await installRepositoryJudgement(repositoryPath, logger);
     }
+    // A resumed task already has people to credit before anyone new writes.
+    await syncCommitCoAuthors(taskRun.id).catch((error: unknown) => {
+      logger.warn(
+        `[runTask] Could not prepare commit co-authors for task run ${taskRun.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
     const persistRuntimeState = createRuntimeStatePersister(
       taskRun.id,
       recordWorkerRuntimeEvent,

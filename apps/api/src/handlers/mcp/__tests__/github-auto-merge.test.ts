@@ -17,6 +17,7 @@ import {
 import type { Variables } from '../../../types';
 
 const mocks = vi.hoisted(() => ({
+  writeAccess: vi.fn(),
   mint: vi.fn(),
   credentials: vi.fn(),
   upstream: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock('../../long-lived-fetch', () => ({
 }));
 vi.mock('@roomote/github', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@roomote/github')>()),
+  checkGitHubRepositoryWriteAccess: mocks.writeAccess,
   getOctokit: mocks.octokit,
 }));
 
@@ -114,6 +116,9 @@ describe('GitHub MCP native enable_pull_request_auto_merge', () => {
   });
 
   beforeEach(async () => {
+    mocks.writeAccess
+      .mockReset()
+      .mockResolvedValue({ allowed: true, githubLogin: 'member' });
     mocks.mint.mockReset().mockResolvedValue('scoped-test-token');
     mocks.credentials.mockReset().mockResolvedValue(appCredentials);
     mocks.upstream
@@ -296,6 +301,21 @@ describe('GitHub MCP native enable_pull_request_auto_merge', () => {
     expect(body.error?.message).toContain(
       'Active connected GitHub repository required',
     );
+    expect(mocks.graphql).not.toHaveBeenCalled();
+  });
+
+  it('refuses auto-merge for a member without write access to the repository', async () => {
+    mocks.writeAccess.mockResolvedValue({
+      allowed: false,
+      reason: 'not_linked',
+      message: `Roomote can read ${repositoryFullName} but will not push or open pull requests there until you link your GitHub account in Roomote.`,
+    });
+
+    const { response, body } = await callAndParse();
+
+    expect(response.status).toBe(403);
+    expect(body.error?.message).toContain('link your GitHub account');
+    expect(mocks.mint).not.toHaveBeenCalled();
     expect(mocks.graphql).not.toHaveBeenCalled();
   });
 

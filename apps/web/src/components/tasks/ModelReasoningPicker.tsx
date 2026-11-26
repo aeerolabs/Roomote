@@ -619,7 +619,7 @@ function PickerContent({
                 'h-full min-h-0 data-[orientation=vertical]:min-h-0 [&>span:not([data-slot])]:transition-[bottom] [&>span:not([data-slot])]:duration-300 [&>span:not([data-slot])]:ease-out motion-reduce:[&>span:not([data-slot])]:transition-none [&_[data-slot=slider-track]]:w-4 [&_[data-slot=slider-track]]:border [&_[data-slot=slider-track]]:border-input [&_[data-slot=slider-track]]:bg-input [&_[data-slot=slider-thumb]]:size-7 [&_[data-slot=slider-thumb]]:border-2',
                 reasoningUnavailable
                   ? '[&_[data-slot=slider-range]]:bg-transparent [&_[data-slot=slider-thumb]]:border-input [&_[data-slot=slider-thumb]]:hover:ring-0'
-                  : '[&_[data-slot=slider-range]]:bg-accent-foreground [&_[data-slot=slider-thumb]]:border-accent-foreground',
+                  : '[&_[data-slot=slider-range]]:bg-accent-fill [&_[data-slot=slider-thumb]]:border-accent-foreground',
               )}
               onValueChange={([index]) => setEffortIndex(index ?? 0)}
             />

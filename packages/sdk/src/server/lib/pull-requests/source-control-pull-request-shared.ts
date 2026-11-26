@@ -18,7 +18,10 @@ import {
   type SourceControlProvider,
 } from '@roomote/types';
 import { isGitLabOAuthAccessToken } from '@roomote/gitlab';
-import { resolveTaskRunEnvironmentGitHubRepositories } from '@roomote/github';
+import {
+  checkGitHubRepositoryWriteAccess,
+  resolveTaskRunEnvironmentGitHubRepositories,
+} from '@roomote/github';
 
 export type FetchImpl = typeof fetch;
 
@@ -186,6 +189,30 @@ export async function resolveRepositoryRow({
   }
 
   return rows[0]!;
+}
+
+/**
+ * Why the run's acting user may not push to or open pull requests in a
+ * GitHub repository, or null when they may. The GitHub App can write to every
+ * repository it is installed on, so the person a task acts for must have write
+ * access there themselves.
+ */
+export async function getGitHubWriteDenialForTaskRun(
+  taskRun: Pick<TaskRun, 'actingUserId' | 'taskId'>,
+  repository: Pick<RepositoryRow, 'fullName' | 'installationId'>,
+): Promise<string | null> {
+  if (!repository.installationId) {
+    return null;
+  }
+  const access = await checkGitHubRepositoryWriteAccess({
+    userId: taskRun.actingUserId,
+    taskId: taskRun.taskId,
+    repository: {
+      fullName: repository.fullName,
+      installationId: repository.installationId,
+    },
+  });
+  return access.allowed ? null : access.message;
 }
 
 export async function assertRepositoryInTaskRunScope(

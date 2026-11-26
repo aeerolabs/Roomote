@@ -237,12 +237,12 @@ describe('buildAgentMailEmailBody', () => {
 
   it('renders the reply footer smaller in html and separates it with -- in plain text', () => {
     const footer = formatAgentMailFooterMarkdown(
-      'Reply anytime · [Open in Roomote](https://roomote.example/sessions/1)',
+      'Reply anytime · [Open conversation](https://roomote.example/sessions/1)',
     );
 
     expect(buildAgentMailEmailBody(`Body text\n\n${footer}`)).toEqual({
-      html: '<div><p>Body text</p><p style="font-size:0.875em">Reply anytime · <a href="https://roomote.example/sessions/1">Open in Roomote</a></p></div>',
-      text: `Body text\n\n--\nReply anytime · Open in Roomote (https://roomote.example/sessions/1)`,
+      html: '<div><p>Body text</p><p style="font-size:0.875em">Reply anytime · <a href="https://roomote.example/sessions/1">Open conversation</a></p></div>',
+      text: `Body text\n\n--\nReply anytime · Open conversation (https://roomote.example/sessions/1)`,
     });
   });
 
@@ -250,7 +250,7 @@ describe('buildAgentMailEmailBody', () => {
     'preserves one trusted footer when the source is cap%+i',
     (offset) => {
       const footer = formatAgentMailFooterMarkdown(
-        'Reply anytime · [Open in Roomote](https://roomote.example/sessions/1?a=1&b=2)',
+        'Reply anytime · [Open conversation](https://roomote.example/sessions/1?a=1&b=2)',
       );
       const separator = '\n\n';
       const markdown = `${'a'.repeat(
@@ -261,19 +261,19 @@ describe('buildAgentMailEmailBody', () => {
       expect(body.text.length).toBeLessThanOrEqual(AGENTMAIL_MAX_TEXT_LENGTH);
       expect(body.html.match(/font-size:0\.875em/g)).toHaveLength(1);
       expect(body.html.match(/>Reply anytime/g)).toHaveLength(1);
-      expect(body.html.match(/>Open in Roomote</g)).toHaveLength(1);
+      expect(body.html.match(/>Open conversation</g)).toHaveLength(1);
       expect(body.html).toContain(
         'href="https://roomote.example/sessions/1?a=1&amp;b=2"',
       );
       expect(body.text.match(/\n--\nReply anytime/g)).toHaveLength(1);
-      expect(body.text.match(/Open in Roomote/g)).toHaveLength(1);
+      expect(body.text.match(/Open conversation/g)).toHaveLength(1);
       expect(body.text.includes('[message truncated]')).toBe(offset > 0);
     },
   );
 
   it('does not recognize an agent-authored footer marker before the trusted final footer', () => {
     const trustedFooter = formatAgentMailFooterMarkdown(
-      'Reply anytime · [Open in Roomote](https://roomote.example/sessions/1)',
+      'Reply anytime · [Open conversation](https://roomote.example/sessions/1)',
     );
     const body = buildAgentMailEmailBody(
       `:::roomote-footer agent-authored lookalike\n\nBody\n\n${trustedFooter}`,

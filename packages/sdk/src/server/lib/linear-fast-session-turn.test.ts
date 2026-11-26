@@ -244,7 +244,7 @@ describe('startLinearFastSessionTurn', () => {
       'session-1',
       [
         {
-          label: 'Open in Roomote',
+          label: 'Open conversation',
           url: 'https://app.roomote.example/sessions/session-9',
         },
       ],

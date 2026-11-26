@@ -7,6 +7,7 @@ import {
   buildDiscordMessagePermalink,
   getGitHubFollowUpMention,
   formatPrBodyAttribution,
+  PR_CREATED_BY_LINE,
   resolveTaskWorkspace,
 } from '@roomote/types';
 import {
@@ -285,7 +286,7 @@ function buildPrBodyAttributionLine({
       : defaultFollowUpInstruction;
 
   if (attribution.kind === 'roomote') {
-    return formatPrBodyAttribution('Created by Roomote.', instruction);
+    return formatPrBodyAttribution(PR_CREATED_BY_LINE, instruction);
   }
 
   const safeUserName = escapeValue(attribution.displayName || PRODUCT_NAME);

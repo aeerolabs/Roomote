@@ -967,6 +967,13 @@
       "when": 1793704059777,
       "tag": "0137_colorful_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1795466148553,
+      "tag": "0138_slack_code_channels",
+      "breakpoints": true
     }
   ]
 }

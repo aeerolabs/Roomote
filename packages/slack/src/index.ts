@@ -11,6 +11,9 @@ export * from './find-active-slack-task-run';
 export * from './find-completed-slack-task-run-with-snapshot';
 export * from './forwarded-message-context';
 export * from './automation-root-footer';
+export * from './code-channel-routing';
+export * from './code-channels';
+export * from './code-channel-sync';
 export * from './automation-result-blocks';
 export * from './agent-session-title-sync';
 export * from './handle-followup-answer';
@@ -75,6 +78,7 @@ export type {
   SlackEntityDetailsRequestedEvent,
   SlackMemberJoinedChannelEvent,
   SlackReactionAddedEvent,
+  SlackAgentSessionStoppedEvent,
   TaskUnfurlData,
   WorkObjectEntity,
   WorkObjectUnfurl,

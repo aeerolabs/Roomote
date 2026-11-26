@@ -256,6 +256,17 @@ export interface SlackMemberJoinedChannelEvent {
  * Triggered when a user adds a reaction to a message. Used for
  * reaction-driven automations (for example suggestion execution).
  */
+/** https://docs.slack.dev/reference/events/agent_session_stopped */
+export interface SlackAgentSessionStoppedEvent {
+  type: 'agent_session_stopped';
+  channel: string;
+  user: string;
+  /** Absent when the stop applies to a whole code channel. */
+  thread_ts?: string;
+  streaming_message_ts?: string[];
+  event_ts: string;
+}
+
 export interface SlackReactionAddedEvent {
   type: 'reaction_added';
   user: string;

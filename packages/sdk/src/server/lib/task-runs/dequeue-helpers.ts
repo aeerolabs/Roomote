@@ -56,6 +56,10 @@ import {
 } from '@roomote/cloud-agents/server';
 
 import { withBootstrapFailureSignal } from '../../../bootstrap-failure-signal';
+import {
+  applyRoleAccessToTaskEnv,
+  type TaskEnvRoleAccess,
+} from '../role-access';
 import { notifySourceRunOnSettle } from './notify-source-run-on-settle';
 import { notifyFastAgentParentOnSettle } from './notify-fast-agent-parent-on-settle';
 import { notifyWebTaskInitiatorOnSettle } from './notify-web-task-initiator-on-settle';
@@ -272,6 +276,11 @@ export async function fetchResolvedRuntimeEnvVars(
   options?: {
     sourceControlProvider?: SourceControlProvider | SourceControlProvider[];
     includeSandboxOpenRouterApiKey?: boolean;
+    /**
+     * Whose Entra roles gate this env under R_ROLE_ACCESS_POLICY. Omitted,
+     * the env carries only what the policy leaves open to every task.
+     */
+    roleAccess?: TaskEnvRoleAccess;
   },
 ): Promise<Record<string, string>> {
   const envVars =
@@ -280,16 +289,9 @@ export async function fetchResolvedRuntimeEnvVars(
     deploymentEnvVars: envVars,
   });
 
-  const resolvedEnvVars = redactControlPlaneEnvVars(
-    redactSourceControlProviderEnvVars(
-      redactInferenceGatewayProviderKeys(
-        withLegacySnapshotModelEnvAliases({
-          ...redactModelRuntimeManagedEnvVars(envVars, resolvedModelRuntimeEnv),
-          ...resolvedModelRuntimeEnv,
-        }),
-      ),
-      options?.sourceControlProvider,
-    ),
+  const resolvedEnvVars = await applyRoleAccessToTaskEnv(
+    resolveSandboxRuntimeEnvVars(envVars, resolvedModelRuntimeEnv, options),
+    options?.roleAccess ?? { taskRun: null, mintAwsCredentials: false },
   );
 
   if (options?.includeSandboxOpenRouterApiKey) {
@@ -303,6 +305,26 @@ export async function fetchResolvedRuntimeEnvVars(
   const ordinaryTaskEnvVars = { ...resolvedEnvVars };
   delete ordinaryTaskEnvVars[SANDBOX_OPENROUTER_API_KEY_ENV_VAR_NAME];
   return ordinaryTaskEnvVars;
+}
+
+function resolveSandboxRuntimeEnvVars(
+  envVars: Record<string, string>,
+  resolvedModelRuntimeEnv: Record<string, string>,
+  options?: {
+    sourceControlProvider?: SourceControlProvider | SourceControlProvider[];
+  },
+): Record<string, string> {
+  return redactControlPlaneEnvVars(
+    redactSourceControlProviderEnvVars(
+      redactInferenceGatewayProviderKeys(
+        withLegacySnapshotModelEnvAliases({
+          ...redactModelRuntimeManagedEnvVars(envVars, resolvedModelRuntimeEnv),
+          ...resolvedModelRuntimeEnv,
+        }),
+      ),
+      options?.sourceControlProvider,
+    ),
+  );
 }
 
 /**

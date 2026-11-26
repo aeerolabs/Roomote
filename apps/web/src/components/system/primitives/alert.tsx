@@ -11,7 +11,7 @@ const alertVariants = cva(
         default:
           'bg-card text-card-foreground dark:bg-foreground/10 border-accent-bright-foreground dark:border-accent-foreground/70',
         light: 'bg-transparent text-card-foreground border-foreground/10',
-        notice: 'bg-accent-foreground text-black',
+        notice: 'bg-accent-fill text-accent-fill-foreground',
         warning:
           'bg-warning dark:bg-warning/90 text-warning-foreground [&>svg]:text-current *:data-[slot=alert-description]:text-warning/80',
 

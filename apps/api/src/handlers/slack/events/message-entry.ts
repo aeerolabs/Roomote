@@ -15,8 +15,10 @@ import {
   findActiveSlackTaskRun,
   isTargetSlackBotMessage,
   markSlackThreadExplicitMentionRequired,
+  resolveSlackCodeChannelAnchor,
   resolveSlackReactionNames,
   showConnectAccount,
+  slackInstallationHasCodeChannels,
   type SlackEvent,
   type SlackNotifier,
   type SlackThreadMessage,
@@ -1150,6 +1152,16 @@ export function startFastAgentResponse(params: {
           channelId: params.event.channel,
           threadTs: params.event.thread_ts || params.event.ts,
           messageId: params.event.ts,
+          ...(slackInstallationHasCodeChannels(params.slackInstallation)
+            ? {
+                codeChannels: {
+                  slackInstallationId: params.slackInstallation.id,
+                  ...(params.event.user
+                    ? { requesterSlackUserId: params.event.user }
+                    : {}),
+                },
+              }
+            : {}),
         }),
         onAccepted,
         onRejected,
@@ -1350,12 +1362,30 @@ async function handleSlackEntryEvent(params: {
   });
 }
 
+/**
+ * In a code channel people talk at the top level, while Roomote runs the
+ * session as the thread of the channel's anchor message. Give top-level
+ * messages that thread so every existing thread route (follow-ups, the Fast
+ * conversation, unmentioned-reply judgment) applies unchanged. Replies the
+ * user deliberately threads keep their own thread.
+ */
+async function mapSlackCodeChannelMessageToSession(
+  event: SlackEvent,
+): Promise<void> {
+  if (event.thread_ts || !event.channel || event.channel_type === 'im') return;
+  const anchorTs = await resolveSlackCodeChannelAnchor(event.channel);
+  if (anchorTs && anchorTs !== event.ts) {
+    event.thread_ts = anchorTs;
+  }
+}
+
 export async function handleMessageOrAppMentionEvent(params: {
   event: SlackEvent;
   context: SlackWebhookContext;
 }): Promise<void> {
   const { event, context } = params;
   enrichSlackMessageEvent(event);
+  await mapSlackCodeChannelMessageToSession(event);
   const automatedAppMentionEvent = isRoutableAutomatedSlackAppMention(
     event,
     context.slackInstallation,

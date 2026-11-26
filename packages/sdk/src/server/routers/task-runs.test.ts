@@ -770,7 +770,7 @@ describe('taskRunsRouter queue message guards', () => {
         prRepo: null,
         prNumber: null,
       });
-      const footer = `Reply anytime${count === 1 ? ' · 1 task running' : count >= 2 ? ` · ${count} tasks running` : ''} · <https://app.example.com/sessions/owner|Open in Roomote>`;
+      const footer = `Reply anytime${count === 1 ? ' · 1 task running' : count >= 2 ? ` · ${count} tasks running` : ''} · <https://app.example.com/sessions/owner|Open conversation>`;
       mockGetSlackThreadFooterText.mockResolvedValue(footer);
 
       await expect(

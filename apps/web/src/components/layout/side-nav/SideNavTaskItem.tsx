@@ -113,7 +113,7 @@ export const SideNavTaskItem = ({
                 'flex min-h-10 w-full items-center rounded-lg transition-all',
                 showsExpandedSpinner && 'gap-2',
                 isActive
-                  ? 'px-2 bg-foreground text-accent-bright-foreground dark:bg-accent-foreground dark:text-card'
+                  ? 'px-2 bg-accent-fill text-accent-fill-foreground'
                   : 'px-0 text-muted-foreground hover:text-accent-foreground',
               )}
             >
@@ -153,7 +153,7 @@ export const SideNavTaskItem = ({
                 'pointer-events-none absolute top-1/2 right-2 z-20 flex size-7 -translate-y-1/2 items-center justify-center rounded-full opacity-0 transition-opacity duration-150 focus-visible:!pointer-events-auto focus-visible:!opacity-100',
                 isExpandedRowActionVisible && 'pointer-events-auto opacity-100',
                 isActive
-                  ? 'bg-card hover:bg-accent-foreground text-foreground dark:bg-background dark:text-foreground dark:hover:text-accent-bright-foreground'
+                  ? 'bg-card hover:bg-accent-fill hover:text-accent-fill-foreground text-foreground dark:bg-background dark:text-foreground dark:hover:text-accent-fill-foreground'
                   : 'text-muted-foreground',
                 isExpandedRowActionVisible &&
                   !isActive &&

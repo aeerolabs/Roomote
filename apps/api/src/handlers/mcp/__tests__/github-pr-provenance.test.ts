@@ -55,7 +55,7 @@ it.each(['interactive', 'automation'])(
     expect(result.params.arguments.body).toContain(`[View the session](`);
     expect(result.params.arguments.body).toContain(`/sessions/${sessionId}?`);
     expect(result.params.arguments.body).not.toContain(conversationId);
-    expect(result.params.arguments.body).toContain('Created by Roomote.');
+    expect(result.params.arguments.body).toContain('Created by Kojo.');
     expect(result.params.arguments.body).toContain('## Changes\n\nDone.');
     expect(result.params.arguments).toMatchObject({
       owner: 'acme',
@@ -68,7 +68,7 @@ it.each(['interactive', 'automation'])(
 
 it('canonicalizes duplicate caller provenance and handles an omitted body', async () => {
   const old = formatPrBodyAttribution(
-    'Created by Roomote.',
+    'Created by Kojo.',
     '[View the task](https://example.com/task/old)',
   );
   for (const body of [undefined, `${old}\n\n${old}\n\nDone.`]) {

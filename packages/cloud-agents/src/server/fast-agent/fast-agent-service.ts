@@ -5872,7 +5872,7 @@ export async function answerFastAgentQuestion({
             const kickoffMessage = [
               args.kickoffMessage,
               result.taskUrl && !args.kickoffMessage.includes(result.taskUrl)
-                ? `[Open in Roomote](${result.taskUrl})`
+                ? `[Open task](${result.taskUrl})`
                 : undefined,
             ]
               .filter((part): part is string => Boolean(part))

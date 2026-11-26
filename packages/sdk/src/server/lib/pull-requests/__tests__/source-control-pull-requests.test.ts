@@ -33,7 +33,11 @@ const {
   mockResolveRunCommitAuthor,
   mockProjectPendingPrReviewEventsForAssociation,
   mockNotifyFastAgentParentOnPullRequestOpened,
+  mockCheckGitHubRepositoryWriteAccess,
+  mockResolveTaskGitHubCoAuthorTrailers,
 } = vi.hoisted(() => ({
+  mockCheckGitHubRepositoryWriteAccess: vi.fn(),
+  mockResolveTaskGitHubCoAuthorTrailers: vi.fn(),
   mockCreateGitHubToken: vi.fn(),
   mockGetDeploymentPrAction: vi.fn(),
   mockGetDeploymentGitHubRoomoteMentionEnabled: vi.fn().mockResolvedValue(true),
@@ -105,7 +109,15 @@ vi.mock('@roomote/env', () => ({
   },
 }));
 
+vi.mock('../github-co-authors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../github-co-authors')>()),
+  resolveTaskGitHubCoAuthorTrailers: (...args: unknown[]) =>
+    mockResolveTaskGitHubCoAuthorTrailers(...args),
+}));
+
 vi.mock('@roomote/github', () => ({
+  checkGitHubRepositoryWriteAccess: (...args: unknown[]) =>
+    mockCheckGitHubRepositoryWriteAccess(...args),
   resolveTaskRunEnvironmentGitHubRepositories: (...args: unknown[]) =>
     mockResolveEnvironmentGitHubRepositories(...args),
   getOctokit: (...args: unknown[]) => mockGetOctokit(...args),
@@ -271,6 +283,11 @@ function attributionBody(
 }
 
 beforeEach(() => {
+  mockCheckGitHubRepositoryWriteAccess.mockResolvedValue({
+    allowed: true,
+    githubLogin: 'participant',
+  });
+  mockResolveTaskGitHubCoAuthorTrailers.mockResolvedValue([]);
   mockGetDeploymentGitHubRoomoteMentionEnabled.mockResolvedValue(true);
   mockResolveTelegramRuntimeCredentials.mockResolvedValue({
     botUsername: 'roomote_bot',
@@ -279,7 +296,7 @@ beforeEach(() => {
     ({ attribution }: { attribution: { kind: string; displayName: string } }) =>
       attributionBody(
         attribution.kind === 'roomote'
-          ? 'Created by Roomote.'
+          ? 'Created by Kojo.'
           : `Opened on behalf of ${attribution.displayName}.`,
       ),
   );
@@ -472,7 +489,7 @@ describe('createOrUpdateSourceControlPullRequestForTaskRun', () => {
         }),
         body: JSON.stringify({
           title: '[Fix] Provider neutral PRs',
-          description: `${attributionBody('Created by Roomote.')}\n\nBody`,
+          description: `${attributionBody('Created by Kojo.')}\n\nBody`,
         }),
       }),
     );
@@ -724,7 +741,7 @@ describe('platform-managed draft state', () => {
       input: {
         ...githubInput,
         body: `${attributionBody(
-          'Created by Roomote.',
+          'Created by Kojo.',
           'Follow up by mentioning @roomote or in [the web UI](https://example.com/task/1).',
         )}\n\n## What changed\n\nDone.`,
       },
@@ -758,7 +775,7 @@ describe('platform-managed draft state', () => {
       input: {
         ...githubInput,
         body: attributionBody(
-          'Created by Roomote.',
+          'Created by Kojo.',
           'Follow up by mentioning @roomote or in [the web UI](https://example.com/task/1).',
         ),
       },
@@ -775,7 +792,7 @@ describe('platform-managed draft state', () => {
   it('generates canonical attribution when the input has a stale custom slug', async () => {
     mockResolveConfiguredGitHubAppSlugIfConfigured.mockResolvedValue(null);
     const preservedBody =
-      '> Created by Roomote. Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).\n\n## What changed\n\nDone.';
+      '> Created by Kojo. Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).\n\n## What changed\n\nDone.';
     makeOctokit({
       created: {
         number: 13,
@@ -850,7 +867,7 @@ describe('platform-managed draft state', () => {
       repo: 'web',
       pull_number: 11,
       title: '[Feature] X',
-      body: `${attributionBody('Created by Roomote.')}
+      body: `${attributionBody('Created by Kojo.')}
 
 Body`,
     });
@@ -884,7 +901,7 @@ Body`,
       repo: 'web',
       pull_number: 11,
       title: '[Feature] X',
-      body: `${attributionBody('Created by Roomote.')}
+      body: `${attributionBody('Created by Kojo.')}
 
 Body`,
     });
@@ -1265,6 +1282,68 @@ describe('optional targetBranch', () => {
     });
   });
 
+  it('refuses to open a GitHub pull request for someone without write access', async () => {
+    const octokit = makeOctokit({ list: [] });
+    mockCheckGitHubRepositoryWriteAccess.mockResolvedValueOnce({
+      allowed: false,
+      reason: 'insufficient_permission',
+      message:
+        'Roomote can read acme/web but will not push or open pull requests there: your GitHub account reader does not have write access to it. Ask a maintainer of acme/web for write access.',
+    });
+
+    await expect(
+      createOrUpdateSourceControlPullRequestForTaskRun({
+        taskRun: makeTaskRun({ repo: 'acme/web' }),
+        input: { ...baseInput, targetBranch: 'develop' },
+      }),
+    ).rejects.toMatchObject({
+      httpStatus: 403,
+      message: expect.stringContaining(
+        'Ask a maintainer of acme/web for write access.',
+      ),
+    });
+    expect(mockCheckGitHubRepositoryWriteAccess).toHaveBeenCalledWith({
+      userId: 'user-123',
+      taskId: 'task-123',
+      repository: { fullName: 'acme/web', installationId: 555 },
+    });
+    expect(octokit.rest.pulls.create).not.toHaveBeenCalled();
+    expect(octokit.rest.pulls.update).not.toHaveBeenCalled();
+  });
+
+  it('ends a new GitHub pull request body with the co-author trailers', async () => {
+    const octokit = makeOctokit({
+      list: [],
+      created: {
+        number: 13,
+        node_id: 'node-13',
+        html_url: 'https://github.com/acme/web/pull/13',
+        title: '[Feature] X',
+        draft: true,
+        base: { ref: 'develop' },
+      },
+    });
+    mockResolveTaskGitHubCoAuthorTrailers.mockResolvedValueOnce([
+      'Co-authored-by: asker <1+asker@users.noreply.github.com>',
+      'Co-authored-by: helper <2+helper@users.noreply.github.com>',
+    ]);
+
+    await createOrUpdateSourceControlPullRequestForTaskRun({
+      taskRun: makeTaskRun({ repo: 'acme/web' }),
+      input: {
+        ...baseInput,
+        targetBranch: 'develop',
+        body: 'Adds X.\n\nCo-authored-by: gone <3+gone@users.noreply.github.com>',
+      },
+    });
+
+    const body = octokit.rest.pulls.create.mock.calls[0]?.[0]?.body as string;
+    expect(body).toMatch(
+      /Adds X\.\n\nCo-authored-by: asker <1\+asker@users\.noreply\.github\.com>\nCo-authored-by: helper <2\+helper@users\.noreply\.github\.com>$/,
+    );
+    expect(body).not.toContain('gone');
+  });
+
   it('assigns a new GitHub pull request to the live acting user instead of the launch owner', async () => {
     const octokit = makeOctokit({
       list: [],
@@ -1403,7 +1482,7 @@ describe('optional targetBranch', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('Created by Roomote.'),
+        body: expect.stringContaining('Created by Kojo.'),
       }),
     );
   });
@@ -1539,7 +1618,7 @@ describe('optional targetBranch', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: attributionBody('Created by Roomote.'),
+        body: attributionBody('Created by Kojo.'),
       }),
     );
   });
@@ -1698,7 +1777,7 @@ describe('optional targetBranch', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: attributionBody('Created by Roomote.'),
+        body: attributionBody('Created by Kojo.'),
       }),
     );
   });
@@ -1879,7 +1958,7 @@ describe('optional targetBranch', () => {
     'keeps inherited %s provenance during the final provider mutation',
     async (_label, payload, expectedMetadata, conversationLink) => {
       const canonicalAttribution = attributionBody(
-        'Created by Roomote.',
+        'Created by Kojo.',
         `Follow up by mentioning @roomote or in ${conversationLink}.`,
       );
       const octokit = makeOctokit({
@@ -1912,7 +1991,7 @@ describe('optional targetBranch', () => {
         input: {
           ...baseInput,
           targetBranch: 'develop',
-          body: `${attributionBody('Created by Roomote.')}
+          body: `${attributionBody('Created by Kojo.')}
 
 ## What changed
 
@@ -2241,7 +2320,7 @@ Done.`,
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: `${attributionBody('Created by Roomote.')}\n\nDone.`,
+        body: `${attributionBody('Created by Kojo.')}\n\nDone.`,
       }),
     );
   });
@@ -2259,9 +2338,9 @@ Done.`,
       },
     });
     const harnessAttribution =
-      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
+      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
     const canonicalAttribution =
-      '> \u200B<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
+      '> \u200B<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
     mockGetPrBodyAttributionLine.mockReturnValueOnce(canonicalAttribution);
 
     await createOrUpdateSourceControlPullRequestForTaskRun({
@@ -2282,9 +2361,9 @@ Done.`,
 
   it('collapses the exact duplicated PR attribution shape to one canonical line', async () => {
     const harnessAttribution =
-      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
+      '> &#8203;<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> [View the task](https://example.com/task/1) or mention @roomote-roomote for follow-up asks.';
     const staleCanonicalAttribution =
-      '> \u200B<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
+      '> \u200B<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).';
     const duplicatedBody = `${harnessAttribution}\n\n${staleCanonicalAttribution}\n\n## What changed\n\nDone.`;
     const existing = {
       number: 13,
@@ -2296,7 +2375,7 @@ Done.`,
       body: duplicatedBody,
     };
     const octokit = makeOctokit({ list: [existing], updated: existing });
-    const canonicalAttribution = attributionBody('Created by Roomote.');
+    const canonicalAttribution = attributionBody('Created by Kojo.');
     mockGetPrBodyAttributionLine.mockReturnValueOnce(canonicalAttribution);
 
     await createOrUpdateSourceControlPullRequestForTaskRun({

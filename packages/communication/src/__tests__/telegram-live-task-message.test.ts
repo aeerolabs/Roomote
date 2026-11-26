@@ -27,9 +27,9 @@ describe('buildTelegramLiveTaskMessage', () => {
       htmlText:
         '<details><summary>Fixing bug…</summary>\n\nUpdating the task lifecycle and rerunning focused tests.\n\n</details>',
       footerText:
-        'Open in Roomote: https://roomote.example/sessions/session-1?task=task-1&utm_source=telegram',
+        'Open task: https://roomote.example/sessions/session-1?task=task-1&utm_source=telegram',
       footerHtmlText:
-        '<a href="https://roomote.example/sessions/session-1?task=task-1&amp;utm_source=telegram">Open in Roomote</a>',
+        '<a href="https://roomote.example/sessions/session-1?task=task-1&amp;utm_source=telegram">Open task</a>',
     });
   });
 

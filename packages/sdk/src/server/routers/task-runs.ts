@@ -81,7 +81,10 @@ import {
 import { publishCommunicationRequestUserInput } from '../lib/communication-request-user-input';
 import { publishFastAgentRequestUserInput } from '../lib/task-runs/publish-fast-agent-request-user-input';
 import { reportToParentSession } from '../lib/task-runs/report-to-parent-session';
-import { renderSlackLiveTaskCardForRun } from '../lib/task-runs/slack-live-task-stream';
+import {
+  publishSlackCodeChannelDiffForRun,
+  renderSlackLiveTaskCardForRun,
+} from '../lib/task-runs/slack-live-task-stream';
 import { notifyDirectWebTaskAttention } from '../lib/session-attention-notification';
 import {
   authenticatedProcedure,
@@ -640,6 +643,33 @@ export const taskRunsRouter = router({
         status: input.status,
         ...(input.details ? { details: input.details } : {}),
         ...(input.output ? { output: input.output } : {}),
+      }),
+    ),
+  // Run-token only, like the card: the diff is shown to everyone in the code
+  // channel, so only the task's own sandbox may publish it.
+  publishSlackCodeChannelDiff: runScoped(
+    z.object({
+      runId: z.number(),
+      diff: z.string().max(5_000_000),
+      baseBranch: z.string().max(255).optional(),
+      headBranch: z.string().max(255).optional(),
+    }),
+    'runId',
+  )
+    .use(({ ctx, next }) => {
+      if (!isRunToken(ctx.auth)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'This endpoint is only available to run tokens',
+        });
+      }
+      return next();
+    })
+    .mutation(({ input }) =>
+      publishSlackCodeChannelDiffForRun(input.runId, {
+        diff: input.diff,
+        ...(input.baseBranch ? { baseBranch: input.baseBranch } : {}),
+        ...(input.headBranch ? { headBranch: input.headBranch } : {}),
       }),
     ),
   getResolvedGitAuthor: runScoped(

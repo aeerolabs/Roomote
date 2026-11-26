@@ -22,9 +22,9 @@ describe('Roomote GitHub bot identity helpers', () => {
     it.each(['&#8203;', '&amp;#8203;', '\u200B'])(
       'finds marker-wrapped attribution with the %s prefix',
       (prefix) => {
-        const body = `\n\n> ${prefix}<!-- roomote:pr-attribution:start -->Created by Roomote.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote.`;
+        const body = `\n\n> ${prefix}<!-- roomote:pr-attribution:start -->Created by Kojo.<!-- roomote:pr-attribution:end --> Follow up by mentioning @roomote.`;
 
-        expect(findPrBodyAttributionLine(body)).toBe('> Created by Roomote.');
+        expect(findPrBodyAttributionLine(body)).toBe('> Created by Kojo.');
       },
     );
   });
@@ -48,7 +48,7 @@ describe('Roomote GitHub bot identity helpers', () => {
   describe('normalizePrBodyAttributionAppMention', () => {
     it('rewrites a hardcoded @roomote mention to the configured app slug', () => {
       const body = `${formatPrBodyAttribution(
-        'Created by Roomote.',
+        'Created by Kojo.',
         'Follow up by mentioning @roomote or in [the web UI](https://example.com/task/1).',
       )}\n\n## What changed\n\nDone.`;
 
@@ -56,7 +56,7 @@ describe('Roomote GitHub bot identity helpers', () => {
         normalizePrBodyAttributionAppMention(body, 'roomote-roomote'),
       ).toBe(
         `${formatPrBodyAttribution(
-          'Created by Roomote.',
+          'Created by Kojo.',
           'Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).',
         )}\n\n## What changed\n\nDone.`,
       );
@@ -64,7 +64,7 @@ describe('Roomote GitHub bot identity helpers', () => {
 
     it('keeps the shorthand when it is enabled', () => {
       const body = formatPrBodyAttribution(
-        'Created by Roomote.',
+        'Created by Kojo.',
         'Follow up by mentioning @roomote-roomote.',
       );
 
@@ -72,7 +72,7 @@ describe('Roomote GitHub bot identity helpers', () => {
         normalizePrBodyAttributionAppMention(body, 'roomote-roomote', true),
       ).toBe(
         formatPrBodyAttribution(
-          'Created by Roomote.',
+          'Created by Kojo.',
           'Follow up by mentioning @roomote.',
         ),
       );
@@ -94,7 +94,7 @@ describe('Roomote GitHub bot identity helpers', () => {
 
     it('leaves already-correct mentions and non-attribution body text alone', () => {
       const body =
-        '> Created by Roomote. Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).\n\nSee also @roomote in the body.';
+        '> Created by Kojo. Follow up by mentioning @roomote-roomote or in [the web UI](https://example.com/task/1).\n\nSee also @roomote in the body.';
 
       expect(
         normalizePrBodyAttributionAppMention(body, 'roomote-roomote'),
@@ -133,7 +133,7 @@ describe('Roomote GitHub bot identity helpers', () => {
 
     it('uses generic Roomote provenance when no public identity exists', () => {
       expect(rewritePrBodyAttribution(body, null)).toBe(
-        `${formatPrBodyAttribution('Created by Roomote.', instruction)}\n\n## What changed\n\nDone.`,
+        `${formatPrBodyAttribution('Created by Kojo.', instruction)}\n\n## What changed\n\nDone.`,
       );
     });
 
@@ -144,7 +144,7 @@ describe('Roomote GitHub bot identity helpers', () => {
       );
 
       expect(rewritePrBodyAttribution(marked, null)).toBe(
-        formatPrBodyAttribution('Created by Roomote.', instruction),
+        formatPrBodyAttribution('Created by Kojo.', instruction),
       );
     });
 
@@ -155,7 +155,7 @@ describe('Roomote GitHub bot identity helpers', () => {
       )}`;
 
       expect(rewritePrBodyAttribution(marked, null)).toBe(
-        `Preamble\n${formatPrBodyAttribution('Created by Roomote.', instruction)}`,
+        `Preamble\n${formatPrBodyAttribution('Created by Kojo.', instruction)}`,
       );
     });
 

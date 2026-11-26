@@ -37,6 +37,8 @@ import {
   resolveDeploymentEnvVar,
 } from '@roomote/db/server';
 
+import { checkGitHubWriteAccess } from './repository-write-access';
+
 const CONCURRENCY = 10;
 const ALL_REPOSITORIES = '__all_repositories__';
 const ANALYTICS_CONCURRENCY = 4;
@@ -574,18 +576,116 @@ export type TaskRunWorkerGitHubToken = {
  * GitHub account linking is preserved so we know *who* triggered a job,
  * but the token used for git operations is always the App installation
  * token with its constrained permission set.
+ *
+ * The App can write everywhere it is installed, so the run's acting user must
+ * be able to write to a repository on GitHub before the task may push there.
+ * When they can write to every repository the primary token covers, it keeps
+ * its full permissions. Otherwise the primary token is read-only and each
+ * repository they can write to gets its own writable git credential, so
+ * `git push` works exactly where they could push themselves. Pull requests
+ * go through the server, which checks the same access.
  */
 export async function createTaskRunWorkerGitHubTokenWithMetadata(
   taskRun: TaskRun,
 ): Promise<TaskRunWorkerGitHubToken> {
   const options = await resolveTaskRunGitHubTokenOptions(taskRun);
-  const metadata = await createGitHubTokenWithMetadata(options);
+  if (options.type === 'userId') {
+    throw new Error('Task run tokens are always minted for an installation.');
+  }
+  const primaryScope = await resolvePrimaryTokenRepositories(taskRun, options);
+  const primaryInstallationId = primaryScope.installationId;
+  const otherInstallationRows =
+    options.type === 'installationId' && primaryInstallationId
+      ? await findOtherInstallationRepositories(taskRun, primaryInstallationId)
+      : [];
+  const access = await checkGitHubWriteAccess({
+    userId: taskRun.actingUserId,
+    taskId: taskRun.taskId,
+    repositories: [...primaryScope.rows, ...otherInstallationRows].flatMap(
+      (row) =>
+        row.installationId
+          ? [{ fullName: row.fullName, installationId: row.installationId }]
+          : [],
+    ),
+  });
+  const canWrite = (row: Repository) =>
+    access.get(row.fullName)?.allowed === true;
+  const canWriteEveryPrimaryRepository =
+    primaryScope.rows.length > 0 && primaryScope.rows.every(canWrite);
+  // A whole-installation scope (an all-repositories task) narrows to the
+  // installation's connected repositories when the asker can write to all of
+  // them; otherwise the primary token stays read-only across the installation
+  // and the repositories they can write to get their own git credentials.
+  const primaryOptions: CreateGitHubTokenOptions | null =
+    !canWriteEveryPrimaryRepository
+      ? null
+      : primaryScope.complete
+        ? options
+        : primaryInstallationId &&
+            primaryScope.rows.length <= MAX_TOKEN_REPOSITORY_IDS
+          ? {
+              type: 'installationId',
+              installationId: primaryInstallationId,
+              repositoryIds: primaryScope.rows
+                .map((row) => row.githubRepoId)
+                .filter((id): id is number => id != null),
+            }
+          : null;
+  const primaryWritable = primaryOptions !== null;
+
+  const readOnlyRepositories = [
+    ...primaryScope.rows,
+    ...otherInstallationRows,
+  ].filter((row) => !canWrite(row));
+  if (readOnlyRepositories.length > 0 || !primaryWritable) {
+    console.info(
+      JSON.stringify({
+        event: 'github_task_token_write_access',
+        taskRunId: taskRun.id,
+        primaryWritable,
+        readOnlyRepositories: readOnlyRepositories.map((row) => {
+          const decision = access.get(row.fullName);
+          return {
+            repository: row.fullName,
+            reason: decision && !decision.allowed ? decision.reason : null,
+          };
+        }),
+      }),
+    );
+  }
+
+  const metadata = await createGitHubTokenWithMetadata(
+    primaryOptions ?? { ...options, readOnly: true },
+  );
+
+  const groups: InstallationCredentialGroup[] = [];
+  if (!primaryWritable && primaryInstallationId) {
+    const writable = primaryScope.rows.filter(canWrite);
+    if (writable.length > 0) {
+      groups.push({
+        installationId: primaryInstallationId,
+        rows: writable,
+        readOnly: false,
+      });
+    }
+  }
+  const otherByInstallation = new Map<string, Repository[]>();
+  for (const row of otherInstallationRows) {
+    const group = otherByInstallation.get(row.installationId!) ?? [];
+    group.push(row);
+    otherByInstallation.set(row.installationId!, group);
+  }
+  for (const [installationId, rows] of otherByInstallation) {
+    for (const readOnly of [false, true]) {
+      const subset = rows.filter((row) => canWrite(row) !== readOnly);
+      if (subset.length > 0) {
+        groups.push({ installationId, rows: subset, readOnly });
+      }
+    }
+  }
   const additional =
-    options.type === 'installationId'
-      ? await createAdditionalInstallationGitCredentials(
-          taskRun,
-          String(options.installationId),
-        )
+    groups.length > 0
+      ? await mintInstallationGitCredentials(taskRun, groups)
       : null;
 
   return {
@@ -599,6 +699,113 @@ export async function createTaskRunWorkerGitHubTokenWithMetadata(
       ? { gitCredentials: additional.credentials }
       : {}),
   };
+}
+
+/**
+ * The repositories the primary token reaches, and the installation they are
+ * on. `complete` is false when the token covers a whole installation; the
+ * rows are then that installation's connected repositories.
+ */
+async function resolvePrimaryTokenRepositories(
+  taskRun: TaskRun,
+  options: CreateGitHubTokenOptions,
+): Promise<{
+  rows: Repository[];
+  complete: boolean;
+  installationId: string | null;
+}> {
+  if (options.type === 'installationId') {
+    const installationId = String(options.installationId);
+    const repositoryIds = [...new Set(options.repositoryIds ?? [])];
+    if (repositoryIds.length === 0) {
+      return {
+        rows: await listConnectedInstallationRepositories(installationId),
+        complete: false,
+        installationId,
+      };
+    }
+
+    const rows = (
+      await db.query.repositories.findMany({
+        where: and(
+          eq(
+            repositories.sourceControlProvider,
+            DEFAULT_SOURCE_CONTROL_PROVIDER,
+          ),
+          eq(repositories.isActive, true),
+          eq(repositories.installationId, installationId),
+          inArray(repositories.githubRepoId, repositoryIds),
+        ),
+      })
+    ).filter(
+      (row) =>
+        row.installationId === installationId &&
+        row.githubRepoId != null &&
+        repositoryIds.includes(row.githubRepoId),
+    );
+    return {
+      rows,
+      complete: rows.length === repositoryIds.length,
+      installationId,
+    };
+  }
+
+  if (options.type !== 'activeInstallation') {
+    return { rows: [], complete: false, installationId: null };
+  }
+  // The token mint refuses more than one active installation, so only a
+  // single one has repositories worth checking.
+  const active = await db.query.githubInstallations.findMany({
+    where: isNull(githubInstallations.suspendedAt),
+    columns: { id: true },
+    limit: 2,
+  });
+  const installationId = active.length === 1 ? active[0]!.id : null;
+  return {
+    rows: installationId
+      ? await listConnectedInstallationRepositories(installationId)
+      : [],
+    complete: false,
+    installationId,
+  };
+}
+
+/** GitHub caps `repository_ids` on an installation token request. */
+const MAX_TOKEN_REPOSITORY_IDS = 500;
+const INSTALLATION_REPOSITORIES_CACHE_TTL_MS = 5 * 60 * 1000;
+const installationRepositoriesCache = new Map<
+  string,
+  { rows: Repository[]; expiresAt: number }
+>();
+
+export function clearInstallationRepositoriesCacheForTesting(): void {
+  installationRepositoriesCache.clear();
+}
+
+/** The installation's active connected GitHub repositories, briefly cached. */
+async function listConnectedInstallationRepositories(
+  installationId: string,
+): Promise<Repository[]> {
+  const cached = installationRepositoriesCache.get(installationId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.rows;
+  }
+  const rows = (
+    await db.query.repositories.findMany({
+      where: and(
+        eq(repositories.sourceControlProvider, DEFAULT_SOURCE_CONTROL_PROVIDER),
+        eq(repositories.isActive, true),
+        eq(repositories.installationId, installationId),
+      ),
+    })
+  ).filter(
+    (row) => row.installationId === installationId && row.githubRepoId != null,
+  );
+  installationRepositoriesCache.set(installationId, {
+    rows,
+    expiresAt: Date.now() + INSTALLATION_REPOSITORIES_CACHE_TTL_MS,
+  });
+  return rows;
 }
 
 /**
@@ -627,24 +834,19 @@ function earliestTokenExpiry(left: Date | null, right: Date | null) {
 /**
  * A GitHub App token covers one installation, so stamped repositories on
  * other installations get their own repository-scoped tokens, delivered as
- * per-repository git credentials. Best effort: an installation that fails to
- * mint is logged and skipped rather than blocking the run, since the primary
- * token already covers the task's own repository.
+ * per-repository git credentials.
  */
-async function createAdditionalInstallationGitCredentials(
+async function findOtherInstallationRepositories(
   taskRun: TaskRun,
   primaryInstallationId: string,
-): Promise<{
-  credentials: SourceControlGitCredential[];
-  expiresAt: Date | null;
-}> {
+): Promise<Repository[]> {
   const stampedRepositories =
     resolveRepositoryNamesForSourceControlProviderFromPayload(
       taskRun.payload,
       DEFAULT_SOURCE_CONTROL_PROVIDER,
     ) ?? [];
   if (stampedRepositories.length === 0) {
-    return { credentials: [], expiresAt: null };
+    return [];
   }
 
   const rows = await db.query.repositories.findMany({
@@ -654,33 +856,58 @@ async function createAdditionalInstallationGitCredentials(
       inArray(repositories.fullName, [...new Set(stampedRepositories)]),
     ),
   });
-  const rowsByInstallation = new Map<string, Repository[]>();
-  for (const row of rows) {
-    if (
-      !row.installationId ||
-      row.installationId === primaryInstallationId ||
-      row.githubRepoId == null
-    ) {
-      continue;
-    }
-    const group = rowsByInstallation.get(row.installationId) ?? [];
-    group.push(row);
-    rowsByInstallation.set(row.installationId, group);
-  }
+  return rows.filter(
+    (row) =>
+      row.installationId &&
+      row.installationId !== primaryInstallationId &&
+      row.githubRepoId != null,
+  );
+}
 
+type InstallationCredentialGroup = {
+  installationId: string;
+  rows: Repository[];
+  readOnly: boolean;
+};
+
+/**
+ * Best effort: an installation that fails to mint is logged and skipped
+ * rather than blocking the run, since the primary token already covers the
+ * task's own repository.
+ */
+async function mintInstallationGitCredentials(
+  taskRun: TaskRun,
+  groups: InstallationCredentialGroup[],
+): Promise<{
+  credentials: SourceControlGitCredential[];
+  expiresAt: Date | null;
+}> {
   const credentials: SourceControlGitCredential[] = [];
   let expiresAt: Date | null = null;
-  for (const [installationId, group] of rowsByInstallation) {
+  const chunks = groups.flatMap((group) =>
+    Array.from(
+      { length: Math.ceil(group.rows.length / MAX_TOKEN_REPOSITORY_IDS) },
+      (_, index) => ({
+        ...group,
+        rows: group.rows.slice(
+          index * MAX_TOKEN_REPOSITORY_IDS,
+          (index + 1) * MAX_TOKEN_REPOSITORY_IDS,
+        ),
+      }),
+    ),
+  );
+  for (const group of chunks) {
     try {
       const metadata = await createGitHubTokenWithMetadata({
         type: 'installationId',
-        installationId,
-        repositoryIds: group
+        installationId: group.installationId,
+        repositoryIds: group.rows
           .map((row) => row.githubRepoId)
           .filter((id): id is number => id != null),
+        ...(group.readOnly ? { readOnly: true } : {}),
       });
       expiresAt = earliestTokenExpiry(expiresAt, metadata.expiresAt);
-      for (const row of group) {
+      for (const row of group.rows) {
         credentials.push({
           host: row.host || 'github.com',
           repositoryFullName: row.fullName,
@@ -696,7 +923,7 @@ async function createAdditionalInstallationGitCredentials(
         throw error;
       }
       console.warn(
-        `[createAdditionalInstallationGitCredentials] Failed to mint git credentials for task run ${taskRun.id} on another GitHub installation; skipping: ${group
+        `[mintInstallationGitCredentials] Failed to mint git credentials for task run ${taskRun.id}; skipping: ${group.rows
           .map((row) => row.fullName)
           .join(
             ', ',

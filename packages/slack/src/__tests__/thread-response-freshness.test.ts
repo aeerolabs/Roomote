@@ -46,7 +46,7 @@ afterEach(async () => {
 
 it('removing a footer preserves a body updated by another notifier', async () => {
   const footer = buildSlackThreadReplyFooterBlock({
-    footerText: 'Reply anytime · <http://localhost/fixture|Open in Roomote>',
+    footerText: 'Reply anytime · <http://localhost/fixture|Open conversation>',
   });
   const state = server.getState();
   state.messages![0]!.blocks = [body('original'), footer];

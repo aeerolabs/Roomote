@@ -20,7 +20,9 @@ const {
   mockEnqueuePrReviewNotification,
   mockAcquireDraftLock,
   mockSetAutoReadyBlocked,
+  mockCheckGitHubRepositoryWriteAccess,
 } = vi.hoisted(() => ({
+  mockCheckGitHubRepositoryWriteAccess: vi.fn(),
   mockCreateGitHubToken: vi.fn(),
   mockGetOctokit: vi.fn(),
   mockRepositoriesFindFirst: vi.fn(),
@@ -44,6 +46,8 @@ vi.mock('@roomote/auth', () => ({
 }));
 
 vi.mock('@roomote/github', () => ({
+  checkGitHubRepositoryWriteAccess: (...args: unknown[]) =>
+    mockCheckGitHubRepositoryWriteAccess(...args),
   getOctokit: (...args: unknown[]) => mockGetOctokit(...args),
   Schemas: {
     isManagedRoomoteGitHubLogin: (login: string) =>
@@ -166,6 +170,10 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe('writeSourceControlPullRequestForTaskRun', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCheckGitHubRepositoryWriteAccess.mockResolvedValue({
+      allowed: true,
+      githubLogin: 'writer',
+    });
     mockAcquireDraftLock.mockResolvedValue(
       Object.assign(vi.fn().mockResolvedValue(undefined), {
         signal: new AbortController().signal,
@@ -227,6 +235,42 @@ describe('writeSourceControlPullRequestForTaskRun', () => {
       applied: true,
       warnings: [],
     });
+  });
+
+  it('refuses to close a GitHub pull request for someone without write access', async () => {
+    mockRepositoriesFindFirst.mockResolvedValue({
+      installationId: 'installation-1',
+      externalRepoId: null,
+      fullName: 'acme/backend',
+      htmlUrl: 'https://github.com/acme/backend',
+    });
+    mockCheckGitHubRepositoryWriteAccess.mockResolvedValue({
+      allowed: false,
+      reason: 'not_linked',
+      message:
+        'Roomote can read acme/backend but will not push or open pull requests there until you link your GitHub account in Roomote.',
+    });
+    const update = vi.fn();
+    mockGetOctokit.mockReturnValue({ rest: { pulls: { update } } });
+
+    await expect(
+      writeSourceControlPullRequestForTaskRun({
+        taskRun: makeTaskRun({
+          repo: 'acme/backend',
+          sourceControlProvider: 'github',
+        }),
+        input: {
+          action: 'close_pull_request',
+          repositoryFullName: 'acme/backend',
+          prNumber: 55,
+          sourceControlProvider: 'github',
+        },
+      }),
+    ).rejects.toMatchObject({
+      httpStatus: 403,
+      message: expect.stringContaining('link your GitHub account'),
+    });
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('updates an explicitly identified GitHub pull request without creating another', async () => {

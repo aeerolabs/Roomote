@@ -1,4 +1,5 @@
 import type {
+  SlackAgentSessionStoppedEvent,
   SlackEntityDetailsRequestedEvent,
   SlackFunctionExecutedEvent,
   SlackLinkSharedEvent,
@@ -11,6 +12,7 @@ import type { SlackWebhookEvent } from '../types.js';
 import { processSlackWorkflowFunctionExecuted } from '../events/function-executed.js';
 import { maybePostSlackChannelWelcome } from '../events/member-joined.js';
 import { handleMessageOrAppMentionEvent } from '../events/message-entry.js';
+import { handleAgentSessionStoppedEvent } from '../events/agent-session-stopped.js';
 import { handleReactionAddedEvent } from '../events/reactions.js';
 import {
   handleEntityDetailsRequestedEvent,
@@ -38,6 +40,12 @@ export async function dispatchSlackEvent(params: {
 
       return;
     }
+    case 'agent_session_stopped':
+      await handleAgentSessionStoppedEvent({
+        event: event as unknown as SlackAgentSessionStoppedEvent,
+        context,
+      });
+      return;
     case 'reaction_added':
       await handleReactionAddedEvent({
         event: event as SlackReactionAddedEvent,

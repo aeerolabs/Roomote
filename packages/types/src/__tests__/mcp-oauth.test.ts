@@ -121,11 +121,11 @@ describe('Buildkite OAuth', () => {
 });
 
 describe('Cloudflare OAuth', () => {
-  it('uses the hosted API MCP with a deployment-scoped DCR connection', () => {
+  it('uses the hosted API MCP with a per-person DCR connection', () => {
     expect(getMcpIntegration('cloudflare')).toMatchObject({
       name: 'Cloudflare',
       url: 'https://mcp.cloudflare.com/mcp',
-      connectionScope: 'deployment',
+      connectionScope: 'user',
       oauthResource: 'https://mcp.cloudflare.com/mcp',
     });
     expect(getMcpIntegration('cloudflare')?.oauthClientEnv).toBeUndefined();

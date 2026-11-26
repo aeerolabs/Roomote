@@ -22,6 +22,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-bright-foreground: var(--accent-bright-foreground);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-foreground: var(--accent-fill-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-destructive: var(--destructive);
@@ -356,10 +358,12 @@
   stroke-width: 1.5;
 }
 
+/* Brand colors follow Aeero: crimson #ae1a1a for red text and fills, a light
+   rose where a bright fill sits under black text or bright text sits on black. */
 :root,
 .light {
-  --background: oklch(0.96 0.005 120);
-  --background-new: oklch(0.911 0.185 117.691);
+  --background: oklch(0.96 0 0);
+  --background-new: oklch(0.86 0.07 22);
   --foreground: oklch(0 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0 0 0);
@@ -368,12 +372,14 @@
   --primary: oklch(0 0 0);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.94 0 0);
-  --secondary-foreground: oklch(0.4 0.13 120);
+  --secondary-foreground: #ae1a1a;
   --muted: oklch(0.95 0 0);
   --muted-foreground: oklch(0 0 0 / 0.65);
   --accent: var(--background);
-  --accent-foreground: oklch(0.8 0.18 120);
-  --accent-bright-foreground: oklch(0.9 0.18 120);
+  --accent-foreground: #ae1a1a;
+  --accent-bright-foreground: oklch(0.86 0.07 22);
+  --accent-fill: #ae1a1a;
+  --accent-fill-foreground: oklch(1 0 0);
   --warning: oklch(0.77 0.15 80);
   --warning-foreground: oklch(0.25 0.06 85);
   --destructive: oklch(0.65 0.2 25);
@@ -381,7 +387,7 @@
   --border: oklch(0.85 0 0);
   --input: oklch(0.85 0 0);
   --ring: oklch(0 0 0);
-  --chart-1: #d8fb2b;
+  --chart-1: #ae1a1a;
   --chart-2: #2bd1b6;
   --chart-3: #20bbc9;
   --chart-4: #1887c9;
@@ -457,22 +463,24 @@ html[data-status-banner-visible='true'] {
 }
 
 .dark {
-  --background: oklch(0.25 0.005 120);
-  --background-new: oklch(0.911 0.185 117.691);
+  --background: oklch(0.25 0 0);
+  --background-new: oklch(0.86 0.07 22);
   --foreground: oklch(1 0 0);
   --card: oklch(0 0 0);
   --card-foreground: oklch(1 0 0);
   --popover: var(--background);
   --popover-foreground: oklch(1 0 0);
-  --primary: oklch(0.9 0.2 117);
-  --primary-foreground: oklch(0 0 0);
+  --primary: #ae1a1a;
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.25 0 0);
-  --secondary-foreground: oklch(0.9 0.18 120);
+  --secondary-foreground: oklch(0.8 0.1 22);
   --muted: oklch(0.25 0 0);
   --muted-foreground: oklch(1 0 0 / 0.65);
   --accent: var(--background);
-  --accent-foreground: oklch(0.9 0.2 117);
-  --accent-bright-foreground: oklch(0.9 0.18 120);
+  --accent-foreground: oklch(0.66 0.21 27);
+  --accent-bright-foreground: oklch(0.86 0.07 22);
+  --accent-fill: #ae1a1a;
+  --accent-fill-foreground: oklch(1 0 0);
   --warning: oklch(0.77 0.15 80);
   --warning-foreground: oklch(0.25 0.06 85);
   --destructive: oklch(0.6 0.2 25);
@@ -480,7 +488,7 @@ html[data-status-banner-visible='true'] {
   --border: oklch(1 0 0 / 0.5);
   --input: oklch(0.4 0 0);
   --ring: var(--accent-foreground);
-  --chart-1: #d8fb2b;
+  --chart-1: oklch(0.66 0.21 27);
   --chart-2: #2bd1b6;
   --chart-3: #20bbc9;
   --chart-4: #1887c9;
@@ -1160,7 +1168,7 @@ html[data-status-banner-visible='true'] {
 }
 
 .permalink-highlight:before {
-  @apply block absolute rounded-full left-0 bg-accent-foreground;
+  @apply block absolute rounded-full left-0 bg-accent-fill;
   content: '';
   top: 2rem;
   bottom: 2rem;

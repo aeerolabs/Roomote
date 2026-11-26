@@ -65,7 +65,7 @@ export function buildSlackLiveTaskCardBlocks(
     text: [
       content.title,
       output ?? details,
-      content.taskUrl ? `<${content.taskUrl}|Open in Roomote>` : undefined,
+      content.taskUrl ? `<${content.taskUrl}|Open task>` : undefined,
     ]
       .filter((line): line is string => Boolean(line))
       .join('\n'),
@@ -84,7 +84,7 @@ export function buildSlackLiveTaskCardBlocks(
                 {
                   type: 'url',
                   url: content.taskUrl,
-                  text: 'Open in Roomote',
+                  text: 'Open task',
                 },
               ],
             }

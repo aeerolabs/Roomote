@@ -16,6 +16,7 @@ import {
 } from '@roomote/types';
 
 import { Env } from './env';
+import { decodeJwtPayload } from './jwt-payload';
 import { isRoomoteEmailAllowed } from './auth-allowlist';
 import { resolveAuthProviderConfig } from './auth-provider-config';
 import { getRequestInviteToken } from './invite-context';
@@ -26,22 +27,6 @@ import { isSetupTokenValid } from './setup-token';
 const DEFAULT_DEPLOYMENT_ID = 'default';
 const SLACK_TEAM_ID_CLAIM = 'https://slack.com/team_id';
 const MICROSOFT_ENTRA_PROVIDER_ID = 'microsoft-entra-id';
-
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  const [, payload] = token.split('.');
-
-  if (!payload) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(
-      Buffer.from(payload, 'base64url').toString('utf8'),
-    ) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 export function getSlackTeamIdFromIdToken(
   idToken: string | null | undefined,

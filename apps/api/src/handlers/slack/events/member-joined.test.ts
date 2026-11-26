@@ -3,6 +3,7 @@ import {
   deploymentSettings,
   automations,
   eq,
+  slackInstallationChannels,
   slackInstallationFactory,
   slackInstallations,
   userFactory,
@@ -22,7 +23,12 @@ describe('Slack membership welcome', () => {
   let userId: string;
   const postMessage = vi.fn();
   const listPublicChannels = vi.fn();
-  const slack = { postMessage, listPublicChannels } as unknown as SlackNotifier;
+  const isSlackCodeChannel = vi.fn();
+  const slack = {
+    postMessage,
+    listPublicChannels,
+    isSlackCodeChannel,
+  } as unknown as SlackNotifier;
   const welcome = (channel = 'CJOINED', user = installation.botUserId!) =>
     maybePostSlackChannelWelcome({
       event: { channel, user } as SlackMemberJoinedChannelEvent,
@@ -43,6 +49,7 @@ describe('Slack membership welcome', () => {
       { id: 'CJOINED', name: 'roomote-managers' },
     ]);
     postMessage.mockResolvedValue({});
+    isSlackCodeChannel.mockResolvedValue(false);
   });
 
   afterEach(async () => {
@@ -133,6 +140,19 @@ describe('Slack membership welcome', () => {
     expect(postMessage).toHaveBeenCalledTimes(1);
     expect(postMessage.mock.calls[0]![0].text).toContain('Hi humans');
     expect(await db.query.deploymentSettings.findFirst()).toBeUndefined();
+  });
+
+  it('stays quiet when Slack invites the agent into a code channel', async () => {
+    isSlackCodeChannel.mockResolvedValue(true);
+    await welcome('CCODE');
+    expect(isSlackCodeChannel).toHaveBeenCalledWith('CCODE');
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(
+      await db
+        .select()
+        .from(slackInstallationChannels)
+        .where(eq(slackInstallationChannels.channelId, 'CCODE')),
+    ).toEqual([]);
   });
 
   it('ignores human joins and limits ordinary welcomes', async () => {

@@ -2,6 +2,7 @@ import { db, getSessionForFastConversation } from '@roomote/db/server';
 import { Env } from '@roomote/env';
 import {
   formatPrBodyAttribution,
+  PR_CREATED_BY_LINE,
   prependPrBodyAttribution,
   preservePrBodyAttribution,
 } from '@roomote/types';
@@ -45,7 +46,7 @@ export async function normalizeNativeGitHubPrProvenance(input: {
   const authoredBody = typeof args.body === 'string' ? args.body : '';
   const line = preservePrBodyAttribution(
     formatPrBodyAttribution(
-      'Created by Roomote.',
+      PR_CREATED_BY_LINE,
       `[View the session](${url.toString()}).`,
     ),
     authoredBody,

@@ -15,7 +15,7 @@ function hasRoomoteTaskAttribution(prBody: string | null | undefined): boolean {
 
   const hasTaskLink = /\[[^\]]+\]\([^)]*\/task\/[^)]*\)/.test(prBody);
   const hasRoomoteAttributionLine =
-    /Opened on behalf of|Created by Roomote(?: from an unlinked [^.]+)?\./.test(
+    /Opened on behalf of|Created by (?:Kojo|Roomote)(?: from an unlinked [^.]+)?\./.test(
       prBody,
     );
 

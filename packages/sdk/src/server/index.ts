@@ -533,6 +533,11 @@ export {
   resolveSourceControlProviderForRepositoryFromPayload,
 } from './lib/pull-requests/source-control-pull-request-shared';
 export {
+  resolveConversationGitHubCoAuthors,
+  resolveConversationGitHubCoAuthorTrailers,
+  withCoAuthorTrailers,
+} from './lib/pull-requests/github-co-authors';
+export {
   readSourceControlPullRequestForTaskRun,
   sourceControlPullRequestReadInputSchema,
   SourceControlReadError,

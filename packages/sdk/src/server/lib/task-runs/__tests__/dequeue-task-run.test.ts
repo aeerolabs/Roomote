@@ -351,6 +351,11 @@ describe('dequeueTaskRun', () => {
       {
         sourceControlProvider: ['gitlab', 'github'],
         includeSandboxOpenRouterApiKey: false,
+        // The acting person's Entra roles gate the sandbox's env.
+        roleAccess: {
+          taskRun: expect.objectContaining({ taskId: expect.any(String) }),
+          mintAwsCredentials: true,
+        },
       },
     );
     expect(result?.task).toMatchObject({

@@ -144,7 +144,7 @@ export async function startLinearFastSessionTurn(input: {
       await input.linearClient
         .updateSessionExternalUrls(agentSession.id, [
           {
-            label: 'Open in Roomote',
+            label: 'Open conversation',
             url: `${Env.R_APP_URL}/sessions/${session.id}`,
           },
         ])

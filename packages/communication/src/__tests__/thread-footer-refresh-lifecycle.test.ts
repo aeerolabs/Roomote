@@ -115,7 +115,7 @@ describe('persisted latest-run lifecycle reaches the current carrier without ano
     ).resolves.toEqual(
       expect.objectContaining({
         active: true,
-        text: `Reply anytime · 1 task running · <${sessionUrl}|Open in Roomote>`,
+        text: `Reply anytime · 1 task running · <${sessionUrl}|Open conversation>`,
       }),
     );
 
@@ -131,7 +131,7 @@ describe('persisted latest-run lifecycle reaches the current carrier without ano
       expect.objectContaining({
         active: false,
         settled: false,
-        text: `Reply anytime · <${sessionUrl}|Open in Roomote>`,
+        text: `Reply anytime · <${sessionUrl}|Open conversation>`,
       }),
     );
   });
@@ -177,7 +177,7 @@ describe('persisted latest-run lifecycle reaches the current carrier without ano
         });
       await expect(tick()).resolves.toBe('idle');
       expect(edit.mock.calls.at(-1)?.[1]).toContain(
-        '-# Reply anytime · [Open in Roomote]',
+        '-# Reply anytime · [Open conversation]',
       );
       expect(edit.mock.calls.at(-1)?.[1]).not.toContain('tasks running');
       expect(edit.mock.calls.at(-1)?.[1]).toContain('> Quote\n\nOriginal body');

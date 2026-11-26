@@ -23,17 +23,21 @@ describe('bounded footer refresh registry', () => {
   it('parses supported navigation links without consuming nested open parentheses', () => {
     const url = 'https://app.example.com/sessions/session';
     expect(
-      getThreadFooterNavigationUrl(`_[Open in Roomote](${url})_`)?.href,
+      getThreadFooterNavigationUrl(`_[Open conversation](${url})_`)?.href,
     ).toBe(url);
+    expect(
+      getThreadFooterNavigationUrl(`_<${url}|Open conversation>_`)?.href,
+    ).toBe(url);
+    // Footers posted before the label change keep refreshing.
     expect(
       getThreadFooterNavigationUrl(`_<${url}|Open in Roomote>_`)?.href,
     ).toBe(url);
     expect(
-      getThreadFooterNavigationUrl('[Open in Roomote](('.repeat(20_000)),
+      getThreadFooterNavigationUrl('[Open conversation](('.repeat(20_000)),
     ).toBeNull();
     expect(
       getThreadFooterNavigationUrl(
-        '_[Open in Roomote](https://other.example/sessions/session)_',
+        '_[Open conversation](https://other.example/sessions/session)_',
       ),
     ).toBeNull();
   });
@@ -123,7 +127,7 @@ describe('bounded footer refresh registry', () => {
   it('reads the pull request links a footer already shows, in order', () => {
     expect(
       getThreadFooterPullRequestLinks(
-        '_<https://app/tasks|No running tasks> · <https://github.com/o/r/pull/7?a=1&amp;b=2|PR #7> · <https://github.com/o/r/pull/9|PR #9> · <https://app/sessions/s|Open in Roomote>_',
+        '_<https://app/tasks|No running tasks> · <https://github.com/o/r/pull/7?a=1&amp;b=2|PR #7> · <https://github.com/o/r/pull/9|PR #9> · <https://app/sessions/s|Open conversation>_',
       ),
     ).toEqual([
       { prNumber: 7, prUrl: 'https://github.com/o/r/pull/7?a=1&b=2' },
@@ -131,11 +135,11 @@ describe('bounded footer refresh registry', () => {
     ]);
     expect(
       getThreadFooterPullRequestLinks(
-        '-# _[PR #12](https://github.com/o/r/pull/12) · [Open in Roomote](https://app/sessions/s)_',
+        '-# _[PR #12](https://github.com/o/r/pull/12) · [Open conversation](https://app/sessions/s)_',
       ),
     ).toEqual([{ prNumber: 12, prUrl: 'https://github.com/o/r/pull/12' }]);
     expect(
-      getThreadFooterPullRequestLinks('_[Open in Roomote](https://app)_'),
+      getThreadFooterPullRequestLinks('_[Open conversation](https://app)_'),
     ).toEqual([]);
   });
 });

@@ -457,6 +457,7 @@ export const dequeueResumeTaskRun = async (
         includeSandboxOpenRouterApiKey: Boolean(
           result.taskRun.payload.environmentId,
         ),
+        roleAccess: { taskRun: result.taskRun, mintAwsCredentials: true },
       });
     } catch (error) {
       const message =

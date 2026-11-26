@@ -96,6 +96,7 @@ export function reconcileSlackAppManifest({
     features: {
       app_home: required.features.app_home,
       agent_view: required.features.agent_view,
+      code_channels: required.features.code_channels,
     },
     oauth_config: {
       redirect_urls: uniqueStrings(

@@ -8,6 +8,7 @@ import {
   resolveRuntimeGitHubAppCredentials,
   type GitHubAppCredentials,
 } from '@roomote/auth';
+import { checkGitHubRepositoryWriteAccess } from '@roomote/github';
 import { Hono } from 'hono';
 import { isUserToken } from '@roomote/types';
 import {
@@ -26,6 +27,12 @@ import { Env } from '@roomote/env';
 import { z } from 'zod';
 
 import type { Variables } from '../../types';
+import {
+  addGitHubCoAuthorCredit,
+  assignConversationToPullRequest,
+  readCreatedPullRequestNumber,
+} from './github-co-author-credit';
+import { readFastConversationIdHeader } from './tool-approval-enforcement';
 import { normalizeNativeGitHubPrProvenance } from './github-pr-provenance';
 
 import {
@@ -234,6 +241,36 @@ function mintInstallationToken(
   );
 }
 
+const GITHUB_WRITE_TOOL_PREFIX =
+  /^(?:add|assign|close|create|delete|dismiss|enable|fork|merge|push|remove|reopen|request|resolve|submit|update)_/;
+
+/** Names a refused write in words before GitHub's read-only mode would. */
+function isLikelyGitHubWriteTool(name: string): boolean {
+  return writeToolNames.includes(name) || GITHUB_WRITE_TOOL_PREFIX.test(name);
+}
+
+/**
+ * Why a member may not write through this call, or null when they may. A call
+ * about a repository the deployment never connected needs no check: its token
+ * cannot reach that repository at all.
+ */
+async function getMemberWriteDenial(
+  userId: string,
+  target: typeof repositories.$inferSelect | null,
+): Promise<string | null> {
+  if (!target?.installationId) {
+    return null;
+  }
+  const access = await checkGitHubRepositoryWriteAccess({
+    userId,
+    repository: {
+      fullName: target.fullName,
+      installationId: target.installationId,
+    },
+  });
+  return access.allowed ? null : access.message;
+}
+
 function buildRouterGitHubHeaders(readonly: boolean): Record<string, string> {
   const constraints = getRouterMcpUpstreamConstraints(ROUTER_GITHUB_SERVER_ID);
   const headers: Record<string, string> = {};
@@ -266,7 +303,11 @@ export function createGithubMcp(options?: {
     // calls can select the installation that owns their target without a
     // prior request binding the upstream connection to another credential.
     statelessUpstream: true,
-    transformRequest: normalizeNativeGitHubPrProvenance,
+    transformRequest: async (input) =>
+      addGitHubCoAuthorCredit({
+        ...input,
+        request: await normalizeNativeGitHubPrProvenance(input),
+      }),
     resolveCredentials: async (auth, _params, request) => {
       if (Array.isArray(request))
         throw new McpProxyError(
@@ -320,19 +361,34 @@ export function createGithubMcp(options?: {
         isCall && !picked.connectedTarget
           ? { maxResponseBodyBytes: 2 * 1024 * 1024, timeoutMs: 15_000 }
           : {};
+      // Checked before minting so a refused write never costs a token.
+      const writeDenial =
+        isMember && isCall
+          ? await getMemberWriteDenial(userId!, picked.connectedTarget)
+          : null;
+      if (writeDenial && name && isLikelyGitHubWriteTool(name)) {
+        throw new McpProxyError(403, writeDenial);
+      }
       const authHeader = await mintInstallationToken(picked);
 
       if (isMember) {
         // A signed-in member gets what a coding task gets through `gh`: any
         // GitHub tool, under a token that reaches only the repositories the
-        // deployment connected. GitHub and the App's permissions are the
-        // boundary. The Session transcript already records every call.
+        // deployment connected. The App can write to all of them, so a call
+        // about a connected repository writes only when the member can write
+        // there on GitHub themselves, and otherwise runs read-only. The
+        // Session transcript already records every call.
         return {
           authHeader,
           ...responseBounds,
           allowedToolNames: null,
-          disabledToolNames: unsupportedGistToolNames,
-          extraHeaders: { 'X-MCP-Readonly': 'false', 'X-MCP-Toolsets': 'all' },
+          disabledToolNames: writeDenial
+            ? [...unsupportedGistToolNames, ...writeToolNames]
+            : unsupportedGistToolNames,
+          extraHeaders: {
+            'X-MCP-Readonly': String(Boolean(writeDenial)),
+            'X-MCP-Toolsets': 'all',
+          },
         };
       }
 
@@ -364,12 +420,69 @@ export function createGithubMcp(options?: {
       return handleEnablePullRequestAutoMerge(c, body);
     }
     await next();
+    if (getToolCallName(body) === 'create_pull_request' && c.res.ok) {
+      // Not awaited: the reply goes back while the assignment runs.
+      void assignAfterPullRequestCreated({
+        reply: c.res.clone(),
+        body,
+        rawAuth: c.get('authContext'),
+        headers: c.req.raw.headers,
+      });
+    }
     if (getJsonRpcMethod(body) === 'tools/list') {
       c.res = await appendAutoMergeToolDefinition(c.res, c.get('authContext'));
     }
   });
   app.route('/', proxy);
   return app;
+}
+
+async function assignAfterPullRequestCreated({
+  reply,
+  body,
+  rawAuth,
+  headers,
+}: {
+  reply: Response;
+  body: unknown;
+  rawAuth: Variables['authContext'];
+  headers: Headers;
+}): Promise<void> {
+  try {
+    if (!rawAuth || !isUserToken(rawAuth)) {
+      return;
+    }
+    const args = (body as { params?: { arguments?: unknown } }).params
+      ?.arguments;
+    const picked = await pickInstallation(getTargetHint(args));
+    if (!picked.connectedTarget) {
+      return;
+    }
+    const pullNumber = readCreatedPullRequestNumber(
+      await reply.text(),
+      picked.connectedTarget.fullName,
+    );
+    if (!pullNumber) {
+      return;
+    }
+    await assignConversationToPullRequest({
+      actingUserId: await resolveActingUserId({
+        userId: rawAuth.userId ?? null,
+        tokenType: 'auth',
+      }),
+      conversationId: readFastConversationIdHeader(headers),
+      repositoryFullName: picked.connectedTarget.fullName,
+      pullNumber,
+      token: await mintInstallationToken(picked),
+    });
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        event: 'github_mcp_pr_assign_failed',
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
 }
 
 async function handleEnablePullRequestAutoMerge(
@@ -424,6 +537,13 @@ async function handleEnablePullRequestAutoMerge(
         403,
         'Active connected GitHub repository required',
       );
+    }
+    const writeDenial = await getMemberWriteDenial(
+      actor.id,
+      picked.connectedTarget,
+    );
+    if (writeDenial) {
+      throw new McpProxyError(403, writeDenial);
     }
     const token = await mintInstallationToken(picked);
     const pullNumber =

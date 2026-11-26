@@ -1169,7 +1169,7 @@ describe('Discord Gateway event handler', () => {
       expect.objectContaining({
         replyToMessageId: 'message-1',
         text: expect.stringMatching(
-          /^A quick answer\n\n-# Reply anytime · \[Open in Roomote\]\(.*\/sessions\/fast-session-1\?utm_source=discord&utm_medium=link&utm_campaign=discord.fast_reply\)$/,
+          /^A quick answer\n\n-# Reply anytime · \[Open conversation\]\(.*\/sessions\/fast-session-1\?utm_source=discord&utm_medium=link&utm_campaign=discord.fast_reply\)$/,
         ),
       }),
     );
